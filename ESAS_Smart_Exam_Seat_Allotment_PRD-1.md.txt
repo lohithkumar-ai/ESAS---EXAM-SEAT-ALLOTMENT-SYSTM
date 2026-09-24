@@ -1,0 +1,2152 @@
+# ESAS --- Smart Exam Seat Allotment System
+
+## Single Product Requirements Document (PRD)
+
+**Version:** 1.0\
+**Project:** Exam Seat Allotment System (ESAS)\
+**Domain:** Polytechnic / Diploma Examination Management\
+**Target Institution:** AP Diploma / SBTET-style examination workflow\
+**Primary Branches:** CME, ECE, EEE, ME\
+**Room Capacity:** 42 students per room\
+**Default Room Layout:** 3 columns × 14 rows\
+**Primary Seating Pattern:** Zig-Zag / Serpentine\
+**Primary User:** College Exam Cell Staff / Admin
+
+------------------------------------------------------------------------
+
+# 1. Executive Summary
+
+ESAS is a web-based examination seat-allotment platform for
+diploma/polytechnic colleges. It automates the preparation of
+examination seating arrangements from the Nominal Roll (NR) supplied by
+the college examination staff.
+
+The system is designed specifically for situations where:
+
+-   Multiple diploma curricula exist, such as C23, C20, C16 and other
+    applicable curricula.
+-   Students belong to different years and semesters.
+-   Regular and supplementary students appear in the same examination
+    session.
+-   Different branches have different subjects.
+-   Some examinations may have the same subject across multiple
+    branches, especially first-year/common-subject examinations.
+-   The college has only a limited number of rooms, normally around 5--6
+    rooms initially.
+-   Each room has a maximum capacity of 42 students.
+-   The objective is to mix CME, ECE, EEE and ME students as much as
+    possible rather than placing one branch together.
+-   If one branch cannot supply enough students for its planned
+    positions, another available branch can substitute those positions.
+-   Seating must be generated from the uploaded NR list rather than
+    relying on hard-coded subject assumptions.
+-   Regular and supplementary students must remain logically separated
+    while still being handled within the same examination workflow.
+
+The system contains two examination software modes:
+
+1.  **March / April Examination Software**
+    -   Includes 1st, 2nd and 3rd-year examination data as provided in
+        the NR.
+    -   Regular and supplementary students may be present.
+    -   Applicable curricula and semesters are determined from the NR.
+2.  **October / November Examination Software**
+    -   Includes 2nd and 3rd-year examination data as provided in the
+        NR.
+    -   Regular and all years studeents supplementary students may be present.
+    -   Applicable curricula and semesters are determined from the NR.
+
+The user selects the required examination software from the main
+website. Each mode opens its own examination workspace while sharing the
+same core platform architecture.
+
+------------------------------------------------------------------------
+
+# 2. Problem Statement
+
+Manual examination seating is difficult when a college has:
+
+-   Several curricula.
+-   Multiple years and semesters.
+-   Regular and supplementary students.
+-   Four or more branches.
+-   Different subjects for different branches.
+-   Common subjects for some years.
+-   Different examination sessions during the year.
+-   Limited rooms.
+-   Large or changing student counts.
+
+Manual allocation can cause:
+
+-   Students from the same branch sitting together.
+-   Students appearing for the same subject being placed incorrectly.
+-   Regular and supplementary students being mixed incorrectly.
+-   Duplicate seat numbers.
+-   Missing students.
+-   Room over-capacity.
+-   Incorrect attendance sheets.
+-   Incorrect seating charts.
+-   Difficult manual changes.
+-   Errors in invigilator duty allocation.
+
+ESAS solves these problems by using the NR as the authoritative source
+and automatically calculating a valid seating arrangement.
+
+------------------------------------------------------------------------
+
+# 3. Project Objectives
+
+## 3.1 Primary Objectives
+
+1.  Upload and validate examination NR data.
+2.  Support multiple curricula.
+3.  Support 1st, 2nd and 3rd-year students.
+4.  Support semester information.
+5.  Support Regular and Supplementary categories.
+6.  Support multiple branches.
+7.  Support different subjects across branches.
+8.  Detect common subjects instead of assuming all branches have
+    different subjects.
+9.  Mix branches inside every room.
+10. Generate 42-seat room layouts.
+11. Automatically create additional rooms when required.
+12. Generate room-wise seating arrangements.
+13. Generate attendance sheets.
+14. Generate seat slips / hall slips.
+15. Generate invigilator duty charts.
+16. Export all major reports to PDF and Excel.
+17. Search students by PIN or name.
+18. Allow staff to manually review and adjust allocations.
+19. Maintain examination-session history.
+20. Prevent duplicate or invalid allocations.
+
+------------------------------------------------------------------------
+
+# 4. Examination Software Modes
+
+The main portal shall display two major options.
+
+## Option A --- March / April Examination
+
+This software handles the March/April examination session.
+
+### Eligible examination data
+
+-   1st Year
+-   2nd Year
+-   3rd Year
+-   Regular students
+-   Supplementary students
+-   Applicable curricula
+-   Applicable semesters
+
+The actual students included are determined by the uploaded NR.
+
+## Option B --- October / November Examination
+
+This software handles the October/November examination session.
+
+### Eligible examination data
+
+-   2nd Year
+-   3rd Year
+-   Regular students
+-   Supplementary students
+-   Applicable curricula
+-   Applicable semesters
+
+Again, the NR is authoritative.
+
+## Important Rule
+
+The application must **not blindly assume which subjects or students
+belong to a session**.
+
+The uploaded NR determines the actual examination population.
+
+The software mode determines the examination session and default
+academic scope, while NR validation determines the actual records.
+
+------------------------------------------------------------------------
+
+# 5. Academic Data Model
+
+The system must support:
+
+### Curriculum
+
+Examples:
+
+-   C23
+-   C20
+-   C16
+
+The architecture must allow future curricula.
+
+### Year
+
+-   1st Year
+-   2nd Year
+-   3rd Year
+
+### Semester
+
+The system must not hard-code only one semester per year.
+
+Semester information should be configurable and read from the NR.
+
+Example:
+
+-   1st Year → applicable semester
+-   2nd Year → 3rd / 4th semester
+-   3rd Year → 5th / applicable semester
+
+### Branches
+
+Initial branches:
+
+-   CME
+-   ECE
+-   EEE
+-   ME
+
+The system should support adding future branches.
+
+### Student Category
+
+-   Regular
+-   Supplementary
+
+------------------------------------------------------------------------
+
+# 6. Most Important Business Rule --- NR Is the Source of Truth
+
+The system must allocate seats based on the uploaded Nominal Roll.
+
+It must not make assumptions such as:
+
+> "All CME students have Subject X."
+
+Instead:
+
+1.  Read every NR record.
+2.  Identify PIN.
+3.  Identify name.
+4.  Identify branch.
+5.  Identify year.
+6.  Identify semester.
+7.  Identify curriculum.
+8.  Identify subject code.
+9.  Identify subject name.
+10. Identify Regular/Supplementary status.
+11. Build the examination candidate pool.
+12. Apply the seating algorithm.
+
+This is critical because different curricula and years may have
+different subjects.
+
+------------------------------------------------------------------------
+
+# 7. First-Year Common Subject Handling
+
+First-year students require special handling.
+
+It is possible that:
+
+-   CME, ECE, EEE and ME have the same subject.
+-   Only some branches have the same subject.
+-   All four branches have different subjects.
+-   Regular and supplementary students may have different subject
+    combinations.
+
+Therefore, the system must **detect subject collisions from the NR**.
+
+## Example
+
+If the NR shows:
+
+  Branch   Subject
+  -------- -------------
+  CME      Mathematics
+  ECE      Mathematics
+  EEE      Mathematics
+  ME       Mathematics
+
+The system must understand that this is a common-subject group.
+
+It must not artificially treat these students as four different subjects
+merely because their branches differ.
+
+If the NR shows:
+
+  Branch   Subject
+  -------- -------------
+  CME      Mathematics
+  ECE      Physics
+  EEE      Mathematics
+  ME       English
+
+The system must preserve these differences.
+
+## Allocation Principle
+
+The algorithm must prioritize:
+
+1.  Valid examination eligibility.
+2.  No duplicate student.
+3.  Correct subject/session.
+4.  Branch mixing.
+5.  Maximum practical distribution across branches.
+6.  Room capacity.
+7.  No invalid seating conflict.
+
+------------------------------------------------------------------------
+
+# 8. Regular and Supplementary Handling
+
+Regular and Supplementary students must be logically separated.
+
+The system must maintain:
+
+-   Regular candidate pool.
+-   Supplementary candidate pool.
+
+Reports must clearly identify the category.
+
+However, the system should support mixed room allocation when the
+examination rules allow it.
+
+### Important rule
+
+If a supplementary student belongs to a curriculum that is also
+represented in the regular examination population, the system must still
+classify that student as Supplementary.
+
+Classification must be based on the NR's examination/category
+information, not simply the curriculum.
+
+------------------------------------------------------------------------
+
+# 9. Branch Mixing Requirement
+
+The four main branches are:
+
+-   CME
+-   ECE
+-   EEE
+-   ME
+
+The preferred room pattern is:
+
+``` text
+CME   EEE   CME   EEE   CME   EEE
+ECE   ME    ECE   ME    ECE   ME
+CME   EEE   CME   EEE   CME   EEE
+ECE   ME    ECE   ME    ECE   ME
+CME   EEE   CME   EEE   CME   EEE
+ECE   ME    ECE   ME    ECE   ME
+CME   EEE   CME   EEE   CME   EEE
+
+```
+
+This represents 36 displayed positions.
+
+Because the standard room capacity is 42, the complete internal room
+model contains 42 positions.
+
+The application must allow the exact physical room layout to be
+configured instead of assuming that every college uses the same physical
+arrangement.
+
+------------------------------------------------------------------------
+
+# 10. 42-Seat Room Requirement
+
+Every room has a maximum capacity of:
+
+**42 students**
+
+Default logical layout:
+
+**6 columns × 7 rows**
+
+``` text
+01  08  15  22  29  36
+02  09  16  23  30  37
+03  10  17  24  31  38
+04  11  18  25  32  39
+05  12  19  26  33  40
+06  13  20  27  34  41
+07  14  21  28  35  42
+```
+
+The remaining positions must be represented according to the configured
+physical room model so that the system can support the institution's
+actual 42-seat arrangement.
+
+The room-layout configuration must therefore be editable by the
+administrator.
+
+------------------------------------------------------------------------
+
+# 11. Zig-Zag Seating Algorithm
+
+The preferred allocation algorithm is a serpentine / zig-zag pattern.
+
+Example conceptual order:
+
+``` text
+Column 1: Top → Bottom
+Column 2: Bottom → Top
+Column 3: Top → Bottom
+Column 4: Bottom → Top
+Column 5: Top → Bottom
+Column 6: Bottom → Top
+```
+
+This produces an ordered movement:
+
+``` text
+01
+02
+03
+04
+05
+06
+↓
+12
+11
+10
+09
+08
+07
+↓
+13
+14
+15
+16
+17
+18
+...
+```
+
+The exact seat numbering can be configured.
+
+------------------------------------------------------------------------
+
+# 12. Branch Allocation Strategy
+
+The system should attempt to distribute branches in this priority order:
+
+### Priority 1
+
+Use all four branches where possible.
+
+### Priority 2
+
+Avoid adjacent students from the same branch where possible.
+
+### Priority 3
+
+Avoid placing the same subject together where the examination rules
+require separation.
+
+### Priority 4
+
+If a planned branch position has no candidate available, substitute
+another available branch.
+
+Example:
+
+``` text
+Required position:
+CME
+
+Available:
+CME = 0
+ECE = 5
+EEE = 8
+ME  = 6
+
+Result:
+Use ECE/EEE/ME substitution.
+```
+
+This is the required fallback behavior.
+
+------------------------------------------------------------------------
+
+# 13. Subject-Aware Allocation
+
+The algorithm must not only consider branches.
+
+It must consider:
+
+``` text
+Curriculum
+Year
+Semester
+Branch
+Subject Code
+Subject Name
+Exam Type
+Regular/Supplementary
+```
+
+The system should create a candidate identity such as:
+
+``` text
+Exam Session
++ Curriculum
++ Year
++ Semester
++ Subject
++ Category
++ Branch
+```
+
+The allocation engine then decides which candidates can safely share the
+same room.
+
+------------------------------------------------------------------------
+
+# 14. Room Allocation Logic
+
+Input:
+
+``` text
+Total candidates
+Room capacity = 42
+```
+
+Calculate:
+
+``` text
+required_rooms = ceil(total_candidates / 42)
+```
+
+Example:
+
+``` text
+84 students
+84 / 42 = 2 rooms
+```
+
+Example:
+
+``` text
+95 students
+95 / 42 = 2.26
+Required rooms = 3
+```
+
+## Heavy Student Count
+
+If the candidate population exceeds available room capacity:
+
+**Automatically add another room.**
+
+The system must never silently exceed 42 students in one room.
+
+------------------------------------------------------------------------
+
+# 15. Room Availability
+
+The administrator can configure:
+
+``` text
+Room 101
+Room 102
+Room 103
+Room 104
+Room 105
+Room 106
+```
+
+The college may initially have 5--6 rooms.
+
+If more students are present than the available room capacity, the
+system must:
+
+1.  Calculate required rooms.
+2.  Compare required rooms with configured rooms.
+3.  Show capacity warning if insufficient.
+4.  Allow the administrator to add more rooms.
+5.  Recalculate the allocation.
+
+------------------------------------------------------------------------
+
+# 16. Example Room Output
+
+Example:
+
+``` text
+ROOM NO: 101
+
+[01] 26101-CM-001     [07] 26101-EE-001
+[02] 26101-EC-001     [08] 26101-ME-001
+[03] 26101-CM-002     [09] 26101-EE-002
+[04] 26101-EC-002     [10] 26101-ME-002
+[05] 26101-CM-003     [11] 26101-EE-003
+[06] 26101-EC-003     [12] 26101-ME-003
+
+[13] 26101-CM-004     [19] 26101-EE-004
+[14] 26101-EC-004     [20] 26101-ME-004
+[15] 26101-CM-005     [21] 26101-EE-005
+[16] 26101-EC-005     [22] 26101-ME-005
+[17] 26101-CM-006     [23] 26101-EE-006
+[18] 26101-EC-006     [24] 26101-ME-006
+
+...
+```
+
+The final output must contain up to 42 valid students.
+
+------------------------------------------------------------------------
+
+# 17. NR Upload
+
+The Exam Cell Staff uploads an Excel NR.
+
+Supported format:
+
+`.xlsx`
+
+Optional future formats:
+
+-   `.xls`
+-   `.csv`
+
+## Expected Fields
+
+Recommended columns:
+
+``` text
+PIN
+Student Name
+Branch
+Year
+Semester
+Curriculum
+Subject Code
+Subject Name
+Exam Type
+Student Category
+```
+
+Possible values:
+
+``` text
+Exam Type:
+Regular / Supplementary
+
+Student Category:
+Regular / Supply
+```
+
+The application must support column aliases.
+
+Examples:
+
+``` text
+PIN
+Pin No
+PIN Number
+Student PIN
+```
+
+All can map to:
+
+``` text
+pin
+```
+
+------------------------------------------------------------------------
+
+# 18. Upload Validation
+
+Before allocation, the system validates:
+
+-   Missing PIN.
+-   Duplicate PIN.
+-   Missing name.
+-   Invalid branch.
+-   Invalid year.
+-   Invalid curriculum.
+-   Missing subject code.
+-   Missing subject name.
+-   Invalid category.
+-   Invalid exam session.
+-   Duplicate examination record.
+-   Incorrect data types.
+
+The system should display errors before allocation.
+
+Example:
+
+``` text
+Upload Validation
+
+Total rows: 523
+Valid rows: 518
+Errors: 5
+
+Row 32 → Missing PIN
+Row 87 → Invalid branch: CSM
+Row 145 → Missing Subject Code
+...
+```
+
+------------------------------------------------------------------------
+
+# 19. Examination Workflow
+
+``` text
+Login
+  ↓
+Select Examination Software
+  ↓
+March/April OR October/November
+  ↓
+Create Examination Session
+  ↓
+Upload NR
+  ↓
+Validate NR
+  ↓
+Review Student Population
+  ↓
+Separate Regular / Supplementary
+  ↓
+Group by Curriculum / Year / Semester / Branch / Subject
+  ↓
+Analyze Common Subjects
+  ↓
+Configure Rooms
+  ↓
+Generate Seat Allotment
+  ↓
+Run Validation
+  ↓
+Review Room Maps
+  ↓
+Lock Allocation
+  ↓
+Generate Reports
+  ↓
+PDF / Excel
+  ↓
+Print / Download
+```
+
+------------------------------------------------------------------------
+
+# 20. Main Dashboard
+
+Dashboard title:
+
+**Smart Exam Seat Allotment Dashboard**
+
+Cards:
+
+``` text
+Total Students
+Regular Students
+Supplementary Students
+Total Subjects
+Total Branches
+Total Rooms
+Allocated Seats
+Remaining Seats
+```
+
+Additional cards:
+
+``` text
+1st Year
+2nd Year
+3rd Year
+```
+
+Charts:
+
+-   Branch distribution.
+-   Year distribution.
+-   Regular vs Supplementary.
+-   Room utilization.
+-   Subject distribution.
+
+------------------------------------------------------------------------
+
+# 21. Main Website UI
+
+UI style:
+
+**Modern Exam Management & Seat Allocation Dashboard**
+
+Design characteristics:
+
+-   Modern SaaS Admin Dashboard.
+-   Left sidebar.
+-   Card-based dashboard.
+-   Data tables.
+-   Interactive seat map.
+-   Responsive layout.
+-   Professional academic ERP appearance.
+
+Recommended navigation:
+
+``` text
+Dashboard
+Examination
+  ├── March / April
+  └── October / November
+
+Students
+  ├── All Students
+  ├── Regular
+  └── Supplementary
+
+NR Upload
+Seat Allotment
+Rooms
+Reports
+  ├── Seat Allotment
+  ├── Attendance
+  ├── Seat Slips
+  ├── Seating Charts
+  ├── Room Summary
+  ├── Subject-wise
+  ├── Branch-wise
+  └── Invigilator Duty
+
+Search
+Settings
+Admin
+```
+
+------------------------------------------------------------------------
+
+# 22. Examination Session Screen
+
+Example:
+
+``` text
+March / April Examination
+
+Session:
+March-April 2027
+
+Status:
+NR Uploaded
+
+Students:
+1,284
+
+Regular:
+1,012
+
+Supplementary:
+272
+
+Rooms:
+31
+
+Allocated:
+1,284 / 1,302
+```
+
+Actions:
+
+``` text
+Upload NR
+Validate
+Generate Allotment
+Regenerate
+Lock
+Export
+```
+
+------------------------------------------------------------------------
+
+# 23. Student Management
+
+Search by:
+
+-   PIN.
+-   Name.
+-   Branch.
+-   Year.
+-   Semester.
+-   Curriculum.
+-   Subject.
+-   Regular/Supplementary.
+-   Room number.
+
+Student detail:
+
+``` text
+PIN
+Name
+Branch
+Year
+Semester
+Curriculum
+Subject Code
+Subject
+Category
+Exam Session
+Room
+Seat Number
+```
+
+------------------------------------------------------------------------
+
+# 24. Search
+
+Example:
+
+``` text
+Search PIN:
+24101-CM-001
+```
+
+Result:
+
+``` text
+Student: Student Name
+Branch: CME
+Year: 1st Year
+Curriculum: C23
+Subject: Mathematics
+Category: Regular
+
+Room: 101
+Seat: 01
+```
+
+Search must also support name search.
+
+------------------------------------------------------------------------
+
+# 25. Manual Seat Adjustment
+
+The system must support staff review.
+
+Admin can:
+
+-   Move student.
+-   Swap students.
+-   Change room.
+-   Change seat.
+-   Regenerate a room.
+-   Lock a seat.
+-   Exclude a student.
+-   Add a student after verification.
+
+Every manual change should be validated.
+
+------------------------------------------------------------------------
+
+# 26. Allocation Validation Rules
+
+Before locking the final allocation:
+
+### Rule 1
+
+No student can have two seats.
+
+### Rule 2
+
+No seat can contain two students.
+
+### Rule 3
+
+No room can exceed 42 students.
+
+### Rule 4
+
+Every valid NR candidate must either be allocated or explicitly marked
+unallocated with a reason.
+
+### Rule 5
+
+Branch information must remain correct.
+
+### Rule 6
+
+Subject information must remain correct.
+
+### Rule 7
+
+Regular/Supplementary classification must remain correct.
+
+### Rule 8
+
+Curriculum information must remain correct.
+
+### Rule 9
+
+Year and semester must remain correct.
+
+### Rule 10
+
+Room and seat numbers must be unique.
+
+------------------------------------------------------------------------
+
+# 27. Attendance Sheet
+
+Generate room-wise attendance.
+
+Example:
+
+``` text
+EXAMINATION ATTENDANCE SHEET
+
+Room: 101
+Date:
+Session:
+Subject:
+
+Sl.No | Seat | PIN | Name | Branch | Signature
+------------------------------------------------
+01    | 01   | ... | ...  | CME    | ________
+02    | 02   | ... | ...  | ECE    | ________
+...
+42    | 42   | ... | ...  | ME     | ________
+```
+
+Attendance can be exported as:
+
+-   PDF.
+-   Excel.
+
+------------------------------------------------------------------------
+
+# 28. Seat Slips
+
+Generate individual seat slips.
+
+Example:
+
+``` text
+EXAMINATION SEAT SLIP
+
+Student:
+Lohith Kumar
+
+PIN:
+24101-CM-001
+
+Branch:
+CME
+
+Year:
+1st Year
+
+Curriculum:
+C23
+
+Subject:
+XXXXXXXX
+
+Room:
+101
+
+Seat:
+01
+```
+
+The system should support bulk PDF generation.
+
+------------------------------------------------------------------------
+
+# 29. Seating Chart
+
+Generate visual room seating charts.
+
+Example:
+
+``` text
+ROOM 101
+
+┌────┬────┬────┬────┬────┬────┐
+│ 01 │ 07 │ 13 │ 19 │ 25 │ 31 │
+│ CM │ EE │ CM │ EE │ CM │ EE │
+├────┼────┼────┼────┼────┼────┤
+│ 02 │ 08 │ 14 │ 20 │ 26 │ 32 │
+│ EC │ ME │ EC │ ME │ EC │ ME │
+...
+└────┴────┴────┴────┴────┴────┘
+```
+
+Each seat should display:
+
+-   Seat number.
+-   PIN.
+-   Branch.
+-   Optional student name.
+
+------------------------------------------------------------------------
+
+# 30. Invigilator Duty Chart
+
+The system must generate an invigilator duty chart.
+
+Example:
+
+``` text
+INVIGILATOR DUTY CHART
+
+Date:
+Session:
+
+Room | Invigilator | Staff ID | Signature
+------------------------------------------
+101  | Teacher A   | GR001    | ________
+102  | Teacher B   | GR002    | ________
+103  | Teacher C   | GR003    | ________
+```
+
+Future version may support teacher login.
+
+------------------------------------------------------------------------
+
+# 31. Room Summary Report
+
+Example:
+
+``` text
+ROOM SUMMARY
+
+Room | Capacity | Allocated | Empty
+-------------------------------------
+101  | 42       | 42        | 0
+102  | 42       | 42        | 0
+103  | 42       | 39        | 3
+```
+
+------------------------------------------------------------------------
+
+# 32. Branch-wise Report
+
+Example:
+
+``` text
+Branch | Regular | Supply | Total
+---------------------------------
+CME    | 120     | 30     | 150
+ECE    | 110     | 24     | 134
+EEE    | 100     | 20     | 120
+ME     | 90      | 18     | 108
+```
+
+------------------------------------------------------------------------
+
+# 33. Subject-wise Report
+
+Example:
+
+``` text
+Subject Code | Subject | Students | Rooms
+------------------------------------------
+M101         | Maths   | 120      | 3
+P102         | Physics | 100      | 3
+...
+```
+
+------------------------------------------------------------------------
+
+# 34. Curriculum-wise Report
+
+Example:
+
+``` text
+Curriculum | Regular | Supply | Total
+--------------------------------------
+C23        | 500     | 100    | 600
+C20        | 300     | 80     | 380
+C16        | 120     | 40     | 160
+```
+
+The system must not limit the number of curricula.
+
+------------------------------------------------------------------------
+
+# 35. PDF Export
+
+PDF generation must support:
+
+-   Seat allotment.
+-   Attendance.
+-   Seating chart.
+-   Seat slips.
+-   Room summary.
+-   Branch-wise report.
+-   Subject-wise report.
+-   Curriculum-wise report.
+-   Invigilator duty.
+
+Recommended technology:
+
+**ReportLab or WeasyPrint**
+
+------------------------------------------------------------------------
+
+# 36. Excel Export
+
+Excel generation must support:
+
+-   Complete allotment.
+-   Room-wise allotment.
+-   Attendance.
+-   Branch-wise report.
+-   Subject-wise report.
+-   Curriculum-wise report.
+-   Invigilator duty.
+
+Recommended:
+
+**OpenPyXL / Pandas**
+
+------------------------------------------------------------------------
+
+# 37. Technology Stack
+
+## Frontend
+
+Recommended:
+
+-   React 19.
+-   Tailwind CSS.
+-   Shadcn UI.
+-   JavaScript / TypeScript.
+-   Lucide React.
+-   Sonner.
+
+Alternative simple frontend:
+
+-   HTML5.
+-   CSS3.
+-   Bootstrap.
+-   JavaScript.
+
+## Backend
+
+Recommended:
+
+-   Python.
+-   Django.
+-   Django REST Framework.
+
+Alternative high-performance API:
+
+-   FastAPI.
+
+### Recommended final architecture
+
+``` text
+React
+   ↓
+Django REST Framework
+   ↓
+PostgreSQL
+```
+
+Django is preferred because it provides:
+
+-   Built-in admin panel.
+-   Authentication.
+-   ORM.
+-   Security features.
+-   Fast development.
+-   Mature ecosystem.
+-   Easy report/data management.
+-   Good scalability.
+
+------------------------------------------------------------------------
+
+# 38. Database
+
+Production:
+
+**PostgreSQL**
+
+Development:
+
+-   SQLite.
+
+Optional deployment:
+
+-   Dockerized PostgreSQL.
+
+------------------------------------------------------------------------
+
+# 39. Excel Processing
+
+Use:
+
+-   OpenPyXL.
+-   Pandas.
+
+Responsibilities:
+
+-   Read NR.
+-   Detect columns.
+-   Normalize values.
+-   Validate rows.
+-   Import candidates.
+-   Export allotment.
+
+------------------------------------------------------------------------
+
+# 40. PDF Processing
+
+Use:
+
+-   ReportLab for programmatic PDFs.
+-   WeasyPrint for HTML/CSS-based reports.
+
+------------------------------------------------------------------------
+
+# 41. Authentication
+
+Admin authentication:
+
+-   JWT.
+-   HttpOnly cookie.
+-   Bearer token support where required.
+-   Password hashing.
+-   Session timeout.
+
+Recommended token lifetime:
+
+**12 hours**
+
+Only authorized staff should access examination data.
+
+------------------------------------------------------------------------
+
+# 42. User Roles
+
+## Current version
+
+### Exam Cell Admin / Staff
+
+Permissions:
+
+-   Upload NR.
+-   Manage students.
+-   Configure rooms.
+-   Generate allocation.
+-   Edit allocation.
+-   Generate reports.
+-   Export reports.
+-   Search students.
+
+## Future version
+
+### Invigilator
+
+Can:
+
+-   View assigned room.
+-   View seating chart.
+-   View attendance sheet.
+-   Mark attendance.
+
+------------------------------------------------------------------------
+
+# 43. API Structure
+
+Example:
+
+``` text
+/api/auth/login
+/api/auth/logout
+/api/dashboard
+
+/api/exams
+/api/exams/march-april
+/api/exams/october-november
+
+/api/nr/upload
+/api/nr/validate
+/api/nr/preview
+
+/api/students
+/api/students/search
+
+/api/rooms
+/api/rooms/configure
+
+/api/allotment/generate
+/api/allotment/regenerate
+/api/allotment/lock
+/api/allotment/search
+
+/api/reports/seat-allotment
+/api/reports/attendance
+/api/reports/seat-slips
+/api/reports/seating-chart
+/api/reports/room-summary
+/api/reports/branch-wise
+/api/reports/subject-wise
+/api/reports/curriculum-wise
+/api/reports/invigilator-duty
+```
+
+------------------------------------------------------------------------
+
+# 44. Core Database Entities
+
+Recommended models:
+
+``` text
+User
+ExamSession
+Curriculum
+Branch
+Year
+Semester
+Subject
+Student
+ExamCandidate
+Room
+Seat
+SeatAllocation
+Invigilator
+DutyAssignment
+NRUpload
+Report
+AllocationAuditLog
+```
+
+------------------------------------------------------------------------
+
+# 45. Important Database Relationships
+
+``` text
+ExamSession
+   ↓
+NRUpload
+   ↓
+ExamCandidate
+   ├── Student
+   ├── Curriculum
+   ├── Branch
+   ├── Year
+   ├── Semester
+   └── Subject
+
+ExamSession
+   ↓
+Room
+   ↓
+Seat
+   ↓
+SeatAllocation
+   ↓
+ExamCandidate
+```
+
+------------------------------------------------------------------------
+
+# 46. Allocation Engine Architecture
+
+The allocation engine should be a separate service/module.
+
+Suggested structure:
+
+``` text
+seating/
+├── allocation/
+│   ├── engine.py
+│   ├── zigzag.py
+│   ├── branch_balancer.py
+│   ├── subject_validator.py
+│   ├── room_allocator.py
+│   └── validator.py
+```
+
+This prevents the business logic from being mixed directly into UI code.
+
+------------------------------------------------------------------------
+
+# 47. Allocation Engine Process
+
+``` text
+1. Load valid NR records
+2. Filter by examination session
+3. Normalize branches
+4. Normalize curriculum
+5. Normalize year
+6. Normalize semester
+7. Separate Regular/Supplementary
+8. Detect subject groups
+9. Calculate total capacity
+10. Calculate required rooms
+11. Create room/seat positions
+12. Create branch-balanced candidate pools
+13. Apply subject constraints
+14. Apply zig-zag ordering
+15. Substitute unavailable branch positions
+16. Validate allocation
+17. Generate final allocation
+18. Save allocation
+19. Generate reports
+```
+
+------------------------------------------------------------------------
+
+# 48. Branch Substitution
+
+Example:
+
+``` text
+Desired pattern:
+
+CME
+ECE
+CME
+ECE
+CME
+ECE
+```
+
+If CME becomes empty:
+
+``` text
+CME → EEE
+```
+
+or:
+
+``` text
+CME → ME
+```
+
+The replacement should be selected from the largest suitable available
+candidate pool while respecting subject/examination constraints.
+
+The system should record substitutions for audit purposes.
+
+Example:
+
+``` text
+Seat 13
+Expected branch: CME
+Actual branch: EEE
+Reason: CME candidates exhausted
+```
+
+------------------------------------------------------------------------
+
+# 49. Common Subject Collision Strategy
+
+The system must identify whether two or more branches have the same
+subject.
+
+Create a subject group:
+
+``` text
+Subject Code + Exam Session + Year + Semester + Curriculum
+```
+
+If multiple branches share the same subject:
+
+``` text
+CME → Mathematics
+ECE → Mathematics
+EEE → Mathematics
+ME  → Mathematics
+```
+
+The engine marks this as:
+
+``` text
+COMMON SUBJECT GROUP
+```
+
+The algorithm then applies the configured institution rule.
+
+If the institution requires students writing the same subject to be
+separated as much as possible, the engine distributes them across
+rooms/seats.
+
+If common-subject students are permitted to share a room, the engine can
+still branch-mix them while ensuring no duplicate student and correct
+room capacity.
+
+The rule must be configurable rather than hard-coded.
+
+------------------------------------------------------------------------
+
+# 50. Regular vs Supplementary Allocation Modes
+
+The system shall provide:
+
+``` text
+Regular
+Supplementary
+All
+```
+
+filters.
+
+The allocation engine should preserve category metadata even if Regular
+and Supplementary candidates are placed in the same physical room.
+
+Reports must clearly display category.
+
+------------------------------------------------------------------------
+
+# 51. Regeneration
+
+Admin can click:
+
+**Regenerate Allotment**
+
+The system must:
+
+1.  Remove the draft allocation.
+2.  Preserve the original NR.
+3.  Re-run the algorithm.
+4.  Validate the new allocation.
+5.  Show changes.
+6.  Require confirmation before replacing a locked allocation.
+
+Locked allocations must not be overwritten without explicit unlock
+permission.
+
+------------------------------------------------------------------------
+
+# 52. Allocation Status
+
+Each examination session has:
+
+``` text
+Draft
+NR Uploaded
+Validated
+Allocation Generated
+Reviewed
+Locked
+Published
+Archived
+```
+
+------------------------------------------------------------------------
+
+# 53. Audit Log
+
+The system should record:
+
+``` text
+User
+Timestamp
+Action
+Session
+Old Value
+New Value
+Reason
+```
+
+Examples:
+
+``` text
+Generated allotment
+Moved student
+Swapped seats
+Changed room
+Regenerated room
+Locked session
+Exported report
+```
+
+------------------------------------------------------------------------
+
+# 54. Error Handling
+
+The application should provide clear errors.
+
+Example:
+
+``` text
+Unable to generate allocation.
+
+Reason:
+Room capacity is insufficient.
+
+Students: 260
+Available capacity: 252
+Additional rooms required: 1
+```
+
+Another:
+
+``` text
+Unable to allocate 3 students.
+
+Reason:
+No valid room/seat remained.
+```
+
+The administrator should be able to add another room and regenerate.
+
+------------------------------------------------------------------------
+
+# 55. Security Requirements
+
+The system must include:
+
+-   Password hashing.
+-   CSRF protection where applicable.
+-   JWT security.
+-   HttpOnly cookies.
+-   Input validation.
+-   File type validation.
+-   File size limits.
+-   Excel formula/file safety checks.
+-   SQL injection protection through ORM.
+-   Role-based permissions.
+-   Audit logging.
+-   Secure production secrets through environment variables.
+
+Never store production credentials in source code.
+
+------------------------------------------------------------------------
+
+# 56. Performance Requirements
+
+The system should support at least:
+
+-   Thousands of NR records.
+-   Multiple examination sessions.
+-   Multiple curricula.
+-   Multiple subjects.
+-   Dozens of rooms.
+
+Allocation should run asynchronously for large files if required.
+
+The UI should show:
+
+``` text
+Processing NR...
+Validating...
+Generating rooms...
+Allocating seats...
+Generating reports...
+```
+
+------------------------------------------------------------------------
+
+# 57. Responsive Design
+
+The interface must work on:
+
+-   Desktop.
+-   Laptop.
+-   Tablet.
+
+Mobile support should focus on:
+
+-   Dashboard.
+-   Search.
+-   Student details.
+-   Room viewing.
+
+Large seating charts are optimized primarily for desktop and printing.
+
+------------------------------------------------------------------------
+
+# 58. Recommended Project Structure
+
+``` text
+esas/
+│
+├── backend/
+│   ├── manage.py
+│   ├── config/
+│   ├── apps/
+│   │   ├── accounts/
+│   │   ├── examinations/
+│   │   ├── students/
+│   │   ├── nr_import/
+│   │   ├── seating/
+│   │   ├── rooms/
+│   │   ├── reports/
+│   │   └── audit/
+│   ├── requirements.txt
+│   └── .env
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── layouts/
+│   │   ├── services/
+│   │   ├── hooks/
+│   │   └── utils/
+│   ├── package.json
+│   └── vite.config.js
+│
+├── reports/
+├── sample_data/
+├── docker-compose.yml
+└── README.md
+```
+
+------------------------------------------------------------------------
+
+# 59. Environment Configuration
+
+Example:
+
+``` text
+SECRET_KEY=
+DEBUG=False
+
+DATABASE_URL=
+POSTGRES_DB=
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_HOST=
+POSTGRES_PORT=
+
+JWT_SECRET_KEY=
+
+ALLOWED_HOSTS=
+CORS_ALLOWED_ORIGINS=
+```
+
+Credentials must never be committed to GitHub.
+
+------------------------------------------------------------------------
+
+# 60. Deployment Architecture
+
+Recommended:
+
+``` text
+Internet
+   ↓
+Nginx
+   ↓
+React Frontend
+   ↓
+Django REST API
+   ↓
+PostgreSQL
+   ↓
+Report/File Storage
+```
+
+Optional:
+
+``` text
+Docker
+├── frontend
+├── backend
+├── postgres
+└── nginx
+```
+
+------------------------------------------------------------------------
+
+# 61. Main User Journey
+
+``` text
+Admin Login
+     ↓
+Select:
+March/April
+OR
+October/November
+     ↓
+Create/Select Session
+     ↓
+Upload NR
+     ↓
+Preview
+     ↓
+Validate
+     ↓
+Review:
+Regular / Supply
+Year
+Semester
+Curriculum
+Branch
+Subjects
+     ↓
+Configure Rooms
+     ↓
+Generate
+     ↓
+View Room 101
+     ↓
+View Room 102
+     ↓
+...
+     ↓
+Validate
+     ↓
+Lock
+     ↓
+Generate:
+PDF
+Excel
+Attendance
+Seat Slips
+Invigilator Chart
+     ↓
+Print
+```
+
+------------------------------------------------------------------------
+
+# 62. Acceptance Criteria
+
+The project is considered successful when:
+
+### NR
+
+-   Admin can upload NR Excel.
+-   System detects expected columns.
+-   Invalid rows are reported.
+-   Valid rows are imported.
+
+### Academic
+
+-   C23/C20/C16 and future curricula can be supported.
+-   1st/2nd/3rd years can be supported.
+-   Semester is stored.
+-   CME/ECE/EEE/ME are supported.
+-   Additional branches can be configured.
+
+### Examination
+
+-   March/April software is available.
+-   October/November software is available.
+-   Each session maintains separate data.
+-   Students are selected from the NR.
+
+### Category
+
+-   Regular and Supplementary are correctly separated.
+-   Category remains visible throughout reports.
+
+### Seating
+
+-   Maximum 42 students per room.
+-   Additional room is automatically required when necessary.
+-   Zig-zag pattern is supported.
+-   Branch mixing is attempted.
+-   Branch substitution is supported.
+-   Common subjects are detected from NR.
+-   Different subjects are not assumed to be the same.
+-   No duplicate student.
+-   No duplicate seat.
+
+### Reports
+
+-   PDF works.
+-   Excel works.
+-   Attendance works.
+-   Seat slips work.
+-   Seating chart works.
+-   Invigilator duty works.
+-   Room summary works.
+-   Branch-wise works.
+-   Subject-wise works.
+-   Curriculum-wise works.
+
+### Search
+
+-   PIN search works.
+-   Name search works.
+-   Search displays room and seat.
+
+------------------------------------------------------------------------
+
+# 63. Future Enhancements
+
+## P1
+
+-   Multi-session history.
+-   Configurable room layouts.
+-   Multiple examination buildings.
+-   QR code on seat slips.
+-   Email/SMS notifications.
+-   CSV import.
+-   Advanced allocation constraints.
+
+## P2
+
+-   Invigilator login.
+-   Real-time dashboard.
+-   Barcode/QR attendance.
+-   Student self-service seat lookup.
+-   Hall-ticket integration.
+-   Automated notification system.
+
+## P3
+
+-   Integration with official examination data systems where an
+    authorized API/import mechanism is available.
+-   Advanced analytics.
+-   Conflict optimization.
+-   Multi-college management.
+
+------------------------------------------------------------------------
+
+# 64. Important External Portal Integration Principle
+
+If the college later needs to connect ESAS with an official diploma
+examination portal, the integration must use an officially authorized
+method such as:
+
+-   Documented API.
+-   Authorized data export.
+-   Official file exchange.
+-   Approved institutional integration.
+
+The application must not scrape, bypass authentication, or automate
+access to a protected portal without authorization.
+
+Until an official integration is available, the NR Excel upload remains
+the authoritative input mechanism.
+
+------------------------------------------------------------------------
+
+# 65. Final Product Definition
+
+ESAS is not simply a random seat-number generator.
+
+It is an **NR-driven, curriculum-aware, year-aware, semester-aware,
+subject-aware, branch-balanced examination seating management system**.
+
+Its central objective is:
+
+> **Take the actual examination candidate list from the NR, understand
+> Regular/Supplementary students across different curricula, years,
+> semesters, branches and subjects, then automatically produce a valid
+> 42-seat-per-room seating arrangement with maximum practical branch
+> distribution and reliable examination reports.**
+
+The two major examination workflows are:
+
+``` text
+                 ESAS
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+ March / April        October / November
+        │                   │
+  1st + 2nd + 3rd     2nd + 3rd
+        │                   │
+        └─────────┬─────────┘
+                  │
+             Upload NR
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+    Regular            Supplementary
+        │                   │
+        └─────────┬─────────┘
+                  │
+      Curriculum / Year / Sem
+                  │
+        Branch + Subject
+                  │
+       Common Subject Detection
+                  │
+          Room Calculation
+                  │
+        42-Seat Room Allocation
+                  │
+        Zig-Zag Branch Mixing
+                  │
+       Branch Substitution
+                  │
+             Validation
+                  │
+               Lock
+                  │
+       ┌──────────┼───────────┐
+       │          │           │
+      PDF       Excel       Search
+       │          │
+ Attendance   Seat Slips
+ Seating Chart
+ Invigilator Duty
+```
+
+------------------------------------------------------------------------
+
+# 66. Final Recommended Technology
+
+## Frontend
+
+**React 19 + Tailwind CSS + Shadcn UI + Lucide React**
+
+## Backend
+
+**Django + Django REST Framework**
+
+## Database
+
+**PostgreSQL**
+
+## Development Database
+
+**SQLite**
+
+## Excel
+
+**OpenPyXL + Pandas**
+
+## PDF
+
+**ReportLab / WeasyPrint**
+
+## Authentication
+
+**JWT + HttpOnly Cookie**
+
+## Deployment
+
+**Docker + Nginx + PostgreSQL**
+
+## Development
+
+``` text
+Python
+Django
+DRF
+React
+Vite
+Tailwind
+PostgreSQL
+Docker
+```
+
+------------------------------------------------------------------------
+
+# 67. Project Success Goal
+
+The final system should allow an Exam Cell Staff member to complete the
+complete seating operation with minimal manual work:
+
+**Upload NR → Validate → Select examination session → Configure rooms →
+Generate → Review → Lock → Export → Print.**
+
+The generated seating arrangement must be understandable to staff,
+students and invigilators and must accurately reflect the uploaded
+examination data.
+
+------------------------------------------------------------------------
+
+**End of PRD**
