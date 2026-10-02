@@ -9,7 +9,7 @@ const api = axios.create({
 
 // Attach JWT token to every request
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('esas_token');
+  const token = localStorage.getItem('esas_token') || sessionStorage.getItem('esas_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -22,7 +22,11 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('esas_token');
+      localStorage.removeItem('esas_refresh');
       localStorage.removeItem('esas_user');
+      sessionStorage.removeItem('esas_token');
+      sessionStorage.removeItem('esas_refresh');
+      sessionStorage.removeItem('esas_user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -31,11 +35,28 @@ api.interceptors.response.use(
 
 // ── Auth ────────────────────────────────────────────────────
 export const authAPI = {
-  login: (username, password) =>
-    api.post('/auth/login/', { username, password }),
+  login: (identifier, password) => {
+    if (typeof identifier === 'object') {
+      return api.post('/auth/login/', identifier);
+    }
+    const payload = { password };
+    if (identifier.includes('@')) {
+      payload.email = identifier.trim();
+      payload.username = identifier.trim();
+    } else {
+      payload.username = identifier.trim();
+    }
+    return api.post('/auth/login/', payload);
+  },
+  register: (data) =>
+    api.post('/auth/register/', data),
   logout: (refresh) =>
     api.post('/auth/logout/', { refresh }),
   me: () => api.get('/auth/me/'),
+  forgotPassword: (identifier) =>
+    api.post('/auth/forgot-password/', { identifier }),
+  resetPassword: (identifier, code, new_password) =>
+    api.post('/auth/reset-password/', { identifier, code, new_password }),
 };
 
 // ── Dashboard ───────────────────────────────────────────────

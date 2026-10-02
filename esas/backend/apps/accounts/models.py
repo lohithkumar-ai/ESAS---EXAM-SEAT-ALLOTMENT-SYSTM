@@ -7,6 +7,25 @@ from django.utils import timezone
 from datetime import timedelta
 
 
+class UserProfile(models.Model):
+    """Extended user profile with role and phone number."""
+
+    ROLE_CHOICES = [
+        ('ADMIN', 'Admin'),
+        ('STAFF', 'Staff'),
+        ('STUDENT', 'Student'),
+        ('USER', 'User'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    phone = models.CharField(max_length=15, blank=True, default='')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='USER')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.role}"
+
+
 class PasswordResetCode(models.Model):
     """Stores temporary reset codes for password recovery."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reset_codes')

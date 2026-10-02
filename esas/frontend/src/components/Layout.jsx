@@ -9,7 +9,9 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const [isLogoOpen, setIsLogoOpen] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('esas_theme') || 'dark');
-  const user = JSON.parse(localStorage.getItem('esas_user') || '{}');
+  const user = JSON.parse(
+    localStorage.getItem('esas_user') || sessionStorage.getItem('esas_user') || '{}'
+  );
 
   useEffect(() => {
     const root = document.documentElement;
@@ -23,7 +25,11 @@ export default function Layout({ children }) {
 
   const handleLogout = () => {
     localStorage.removeItem('esas_token');
+    localStorage.removeItem('esas_refresh');
     localStorage.removeItem('esas_user');
+    sessionStorage.removeItem('esas_token');
+    sessionStorage.removeItem('esas_refresh');
+    sessionStorage.removeItem('esas_user');
     navigate('/login');
   };
 
@@ -128,10 +134,10 @@ export default function Layout({ children }) {
         }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-              {user.first_name || user.username || 'Admin'}
+              {user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : (user.username || 'User')}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              Exam Cell Staff
+            <div style={{ fontSize: 11, color: 'var(--text-accent)', fontWeight: 500, textTransform: 'capitalize' }}>
+              {user.role ? `${user.role.toLowerCase()} account` : 'Exam Cell Staff'}
             </div>
           </div>
           <button className="btn-ghost" onClick={handleLogout} title="Logout"
