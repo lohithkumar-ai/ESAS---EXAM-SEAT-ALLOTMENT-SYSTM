@@ -81,7 +81,8 @@ def register_view(request):
                 errors[field] = flat
             else:
                 errors[field] = [str(messages)]
-        return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+        first_error = next(iter(errors.values()))[0] if errors else 'Registration failed. Please check your information.'
+        return Response({'errors': errors, 'error': first_error}, status=status.HTTP_400_BAD_REQUEST)
 
     user = serializer.save()
 

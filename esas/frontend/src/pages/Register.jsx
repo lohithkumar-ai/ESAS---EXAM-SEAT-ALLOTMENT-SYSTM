@@ -94,7 +94,11 @@ export default function Register() {
     }
 
     setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
+    if (Object.keys(errors).length > 0) {
+      setError(Object.values(errors)[0]);
+      return false;
+    }
+    return true;
   };
 
   const isFormValid = useMemo(() => {
@@ -113,7 +117,11 @@ export default function Register() {
     e.preventDefault();
     setError('');
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      const formCard = document.querySelector('.auth-card');
+      if (formCard) formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -154,9 +162,7 @@ export default function Register() {
         }, 2000);
       }
     } catch (err) {
-      if (!err.response) {
-        setError('Cannot connect to server. Please check your internet connection.');
-      } else if (err.response?.data?.errors) {
+      if (err.response?.data?.errors) {
         // Map backend field errors to frontend field names
         const backendErrors = err.response.data.errors;
         const mapped = {};
@@ -165,13 +171,22 @@ export default function Register() {
         if (backendErrors.password) mapped.password = Array.isArray(backendErrors.password) ? backendErrors.password[0] : backendErrors.password;
         if (backendErrors.full_name) mapped.fullName = Array.isArray(backendErrors.full_name) ? backendErrors.full_name[0] : backendErrors.full_name;
         setFieldErrors(mapped);
-        // Show first error as global if no specific field
-        if (Object.keys(mapped).length === 0) {
-          setError('Registration failed. Please check your information.');
-        }
+
+        // Always show the first error in the top error alert banner as well!
+        const firstErr = Object.values(mapped)[0] || err.response?.data?.error || 'Registration failed. Please check your information.';
+        setError(firstErr);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else if (!err.response) {
+        setError('Cannot connect to server. Please ensure the backend server is running.');
       } else {
-        setError(err.response?.data?.error || err.response?.data?.detail || 'Registration failed. Please try again.');
+        setError('Registration failed. Please try again.');
       }
+
+      const formCard = document.querySelector('.auth-card');
+      if (formCard) formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } finally {
       setLoading(false);
     }

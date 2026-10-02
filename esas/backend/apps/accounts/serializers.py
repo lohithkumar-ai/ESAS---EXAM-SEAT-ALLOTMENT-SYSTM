@@ -1,4 +1,5 @@
 """Serializers for the accounts app (Authentication)."""
+import re
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import validate_email
@@ -56,8 +57,8 @@ class RegisterSerializer(serializers.Serializer):
         except DjangoValidationError:
             raise serializers.ValidationError('Please enter a valid email address.')
 
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('An account with this email already exists.')
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError('An account with this email already exists. Please sign in instead.')
         return value
 
     def validate_phone(self, value):
@@ -95,18 +96,19 @@ class RegisterSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         """Create a new user with profile."""
-        full_name = validated_data['full_name']
+        full_name = validated_data['full_name'].strip()
         name_parts = full_name.split(' ', 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ''
 
-        # Generate a username from email
-        email = validated_data['email']
+        # Generate a clean username from email
+        email = validated_data['email'].lower().strip()
         base_username = email.split('@')[0]
-        username = base_username
+        clean_base = re.sub(r'[^a-zA-Z0-9_]', '', base_username) or 'user'
+        username = clean_base
         counter = 1
         while User.objects.filter(username=username).exists():
-            username = f"{base_username}{counter}"
+            username = f"{clean_base}{counter}"
             counter += 1
 
         user = User.objects.create_user(
@@ -117,10 +119,12 @@ class RegisterSerializer(serializers.Serializer):
             last_name=last_name,
         )
 
-        UserProfile.objects.create(
+        UserProfile.objects.get_or_create(
             user=user,
-            phone=validated_data['phone'],
-            role='USER',
+            defaults={
+                'phone': validated_data.get('phone', ''),
+                'role': 'USER',
+            }
         )
 
         return user
