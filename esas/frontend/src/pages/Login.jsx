@@ -66,12 +66,16 @@ export default function Login() {
           navigate('/dashboard');
       }
     } catch (err) {
-      if (!err.response) {
-        setError('Cannot connect to server. Please check your internet connection.');
-      } else if (err.response.status === 401) {
-        setError('Invalid email/username or password. Please try again.');
+      if (err.response?.status === 401) {
+        setError(err.response?.data?.error || 'Invalid email/username or password. Please try again.');
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else if (!err.response) {
+        setError('Cannot connect to server. Please ensure the backend server is running.');
       } else {
-        setError(err.response?.data?.error || 'Login failed. Please try again.');
+        setError('Login failed. Please try again.');
       }
     } finally {
       setLoading(false);

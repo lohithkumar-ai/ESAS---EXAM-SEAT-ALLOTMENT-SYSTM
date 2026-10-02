@@ -19,4 +19,4 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         value: https://frontend-rho-jade-80.vercel.app,http://localhost:5173
       - key: CSRF_TRUSTED_ORIGINS
-        value: https://*.onrender.com,https://frontend-rho-jade-80.vercel.app,https://esas-exam-seat-allotment-systm.onrender.com
+        value: https://*.onrender.com,https://frontend-rho-jade-80.vercel.app,https://esas-exam-seat-allotment-systm.onrender.com,https://*.vercel.app
