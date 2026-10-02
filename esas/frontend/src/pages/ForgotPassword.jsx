@@ -29,13 +29,18 @@ export default function ForgotPassword() {
     setLoading(true);
     try {
       const res = await authAPI.forgotPassword(identifier.trim());
-      setMessage(res.data?.message || 'If an account exists with that username/email, a reset code has been generated.');
-      if (res.data?.dev_code) {
-        setResetCode(res.data.dev_code);
+      const generatedCode = res.data?.reset_code || res.data?.dev_code;
+      if (generatedCode) {
+        setResetCode(generatedCode);
+        setMessage(`Verification code generated: ${generatedCode}`);
+      } else {
+        setMessage(res.data?.message || 'If an account exists with that username/email, a reset code has been generated.');
       }
       setStep('reset');
     } catch (err) {
-      if (!err.response) {
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (!err.response) {
         setError('Cannot connect to server. Please check your internet connection.');
       } else {
         setMessage('If an account exists with that username/email, a reset code has been generated.');
@@ -73,10 +78,14 @@ export default function ForgotPassword() {
       await authAPI.resetPassword(identifier.trim(), resetCode.trim(), newPassword);
       setStep('success');
     } catch (err) {
-      if (!err.response) {
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else if (!err.response) {
         setError('Cannot connect to server. Please check your internet connection.');
       } else {
-        setError(err.response?.data?.error || err.response?.data?.detail || 'Invalid or expired reset code. Please try again.');
+        setError('Invalid or expired reset code. Please try again.');
       }
       const formCard = document.querySelector('.auth-card');
       if (formCard) formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -174,6 +183,31 @@ export default function ForgotPassword() {
                 marginBottom: '16px',
               }}>
                 {message}
+              </div>
+            )}
+
+            {resetCode && (
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.12)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px 16px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <div>
+                  <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    Verification Code
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '4px', color: 'var(--primary-light)', marginTop: '2px' }}>
+                    {resetCode}
+                  </div>
+                </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Valid for 15 mins
+                </span>
               </div>
             )}
 

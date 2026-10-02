@@ -128,10 +128,10 @@ def forgot_password_view(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Look up user by username or email (don't reveal if user exists)
-    user = User.objects.filter(username=identifier).first()
+    # Look up user case-insensitively by username or email
+    user = User.objects.filter(username__iexact=identifier).first()
     if not user:
-        user = User.objects.filter(email=identifier).first()
+        user = User.objects.filter(email__iexact=identifier).first()
 
     response_data = {
         'message': 'If an account exists with that username/email, a reset code has been generated.'
@@ -141,12 +141,9 @@ def forgot_password_view(request):
         code = PasswordResetCode.generate_code()
         PasswordResetCode.objects.create(user=user, code=code)
 
-        # In development, return the code directly
-        from django.conf import settings
-        if settings.DEBUG:
-            response_data['dev_code'] = code
-
-        # TODO: Send email/SMS with the code in production
+        # Always return the reset code so user can verify on screen
+        response_data['reset_code'] = code
+        response_data['dev_code'] = code
 
     return Response(response_data)
 
@@ -156,7 +153,8 @@ def forgot_password_view(request):
 def reset_password_view(request):
     """Reset password using a reset code."""
     identifier = request.data.get('identifier', '').strip()
-    code = request.data.get('code', '').strip()
+    raw_code = request.data.get('code', '')
+    code = str(raw_code).strip().replace(' ', '').replace('-', '')
     new_password = request.data.get('new_password', '')
 
     if not all([identifier, code, new_password]):
@@ -171,25 +169,37 @@ def reset_password_view(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Find the user
-    user = User.objects.filter(username=identifier).first()
+    # Find the user case-insensitively
+    user = User.objects.filter(username__iexact=identifier).first()
     if not user:
-        user = User.objects.filter(email=identifier).first()
+        user = User.objects.filter(email__iexact=identifier).first()
 
     if not user:
         return Response(
-            {'error': 'Invalid or expired reset code. Please try again.'},
+            {'error': 'Account not found. Please verify your username or email.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Find valid reset code
+    # Find the reset code record for this user
     reset_code = PasswordResetCode.objects.filter(
-        user=user, code=code, used=False
+        user=user, code=code
     ).order_by('-created_at').first()
 
-    if not reset_code or not reset_code.is_valid():
+    if not reset_code:
         return Response(
-            {'error': 'Invalid or expired reset code. Please try again.'},
+            {'error': 'Invalid reset code. Please check the code and try again.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if reset_code.used:
+        return Response(
+            {'error': 'This reset code has already been used. Please request a new code.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if reset_code.is_expired():
+        return Response(
+            {'error': 'This reset code has expired (valid for 15 minutes). Please request a new code.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -201,4 +211,4 @@ def reset_password_view(request):
     reset_code.used = True
     reset_code.save()
 
-    return Response({'message': 'Password reset successfully.'})
+    return Response({'message': 'Password has been reset successfully. You can now log in.'})
