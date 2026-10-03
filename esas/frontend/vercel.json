@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://esas-exam-seat-allotment-systm.onrender.com/api/:path*"
+      "destination": "https://adjustable-collectible-gaps-routing.trycloudflare.com/api/:path*"
     },
     {
       "source": "/(.*)",
