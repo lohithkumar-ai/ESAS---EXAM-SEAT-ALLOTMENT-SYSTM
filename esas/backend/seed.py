@@ -8,10 +8,20 @@ from django.contrib.auth.models import User
 from apps.examinations.models import ExaminationSoftware, Curriculum, Branch
 
 def seed():
-    # Superuser
+    # Superuser admin
     if not User.objects.filter(username='admin').exists():
         User.objects.create_superuser('admin', 'admin@example.com', 'admin')
         print("Created superuser 'admin' with password 'admin'")
+
+    # Admin user lavanya
+    lavanya, created = User.objects.get_or_create(username='lavanya', defaults={'email': 'lavanya@example.com'})
+    lavanya.set_password('CSE101')
+    lavanya.is_superuser = True
+    lavanya.is_staff = True
+    lavanya.save()
+    from apps.accounts.models import UserProfile
+    UserProfile.objects.update_or_create(user=lavanya, defaults={'role': 'ADMIN'})
+    print("Created/Updated admin 'lavanya' with password 'CSE101'")
 
     # Software
     softwares = ['March / April Examination', 'October / November Examination']
