@@ -9,7 +9,7 @@ from django.http import JsonResponse
 
 
 def health_check(request):
-    """Root health check endpoint for Render load balancers and uptime monitors."""
+    """Health check endpoint for uptime monitors."""
     return JsonResponse({
         'status': 'healthy',
         'service': 'ESAS Backend API',

@@ -43,7 +43,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -80,10 +80,7 @@ DATABASES = {
     }
 }
 
-database_url = os.getenv('DATABASE_URL')
-if database_url:
-    import dj_database_url
-    DATABASES['default'] = dj_database_url.config(default=database_url, conn_max_age=600)
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -99,38 +96,16 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS & CSRF
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in ('true', '1', 'yes')
-    CORS_ALLOWED_ORIGINS = [
-        o.strip() for o in os.getenv(
-            'CORS_ALLOWED_ORIGINS',
-            'https://esas-exam-seat-allotment-systm.vercel.app,http://localhost:5173'
-        ).split(',') if o.strip()
-    ]
-    CORS_ALLOWED_ORIGIN_REGEXES = [
-        r"^https:\/\/.*\.vercel\.app$",
-        r"^https:\/\/.*\.railway\.app$",
-        r"^https:\/\/.*\.up\.railway\.app$",
-    ]
+# CORS
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.railway.app',
-    'https://*.up.railway.app',
-    'https://*.vercel.app',
-    'https://*.onrender.com',
-    'https://*.trycloudflare.com',
-]
 
 # REST Framework
 REST_FRAMEWORK = {

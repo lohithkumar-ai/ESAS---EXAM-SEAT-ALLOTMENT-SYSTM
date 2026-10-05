@@ -1,10 +1,7 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || (
-  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? '/api'
-    : 'https://adjustable-collectible-gaps-routing.trycloudflare.com/api'
-);
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 
 const api = axios.create({
   baseURL: API_BASE,

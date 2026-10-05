@@ -115,8 +115,47 @@ export default function ExamSelect() {
     <div className="fade-in">
       <div className="page-header">
         <div>
-          <button className="btn-ghost" onClick={() => navigate('/examination')} style={{ padding: '0 0 8px 0', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', fontSize: 13 }}>
-            <ArrowLeft size={14} style={{ marginRight: 4 }} /> Back to Software Selection
+          <button
+            onClick={() => navigate('/examination')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 16px 8px 10px',
+              marginBottom: 8,
+              background: 'rgba(99, 102, 241, 0.08)',
+              border: '1px solid rgba(99, 102, 241, 0.15)',
+              borderRadius: 20,
+              color: 'var(--accent)',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              letterSpacing: '0.01em',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+              e.currentTarget.style.transform = 'translateX(-2px)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.15)';
+              e.currentTarget.style.transform = 'translateX(0)';
+            }}
+          >
+            <span style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 22,
+              height: 22,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--accent), var(--accent-hover))',
+            }}>
+              <ArrowLeft size={13} color="#fff" />
+            </span>
+            Back to Software Selection
           </button>
           <h1 className="page-title">{activeSoftware?.name || 'Examination Sessions'}</h1>
           <p className="page-subtitle">Select or create an examination session for this software</p>
