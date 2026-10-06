@@ -2,7 +2,6 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 
 import Layout from './components/Layout';
-import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ExamSelect from './pages/ExamSelect';
 import ExamSession from './pages/ExamSession';
@@ -13,91 +12,142 @@ import SeatingChart from './pages/SeatingChart';
 import Reports from './pages/Reports';
 import Search from './pages/Search';
 
-function getAuthToken() {
-  return localStorage.getItem('esas_token') || sessionStorage.getItem('esas_token');
-}
-
-function ProtectedRoute({ children }) {
-  const token = getAuthToken();
-
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-}
-
-function GuestRoute({ children }) {
-  const token = getAuthToken();
-
-  if (token) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return children;
-}
-
 export default function App() {
   return (
     <HashRouter>
       <Routes>
-        {/* Login */}
+
+        {/* Dashboard */}
         <Route
-          path="/login"
+          path="/"
           element={
-            <GuestRoute>
-              <Login />
-            </GuestRoute>
+            <Layout>
+              <Dashboard />
+            </Layout>
           }
         />
 
-        {/* Protected application */}
         <Route
-          path="/*"
+          path="/dashboard"
           element={
-            <ProtectedRoute>
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-
-                  <Route path="/admin/dashboard" element={<Dashboard />} />
-                  <Route path="/staff/dashboard" element={<Dashboard />} />
-                  <Route path="/student/dashboard" element={<Dashboard />} />
-
-                  <Route path="/examination" element={<ExamSelect />} />
-                  <Route path="/examination/:sessionId" element={<ExamSession />} />
-
-                  <Route path="/upload/:sessionId" element={<NRUpload />} />
-
-                  <Route path="/students" element={<Students />} />
-
-                  <Route path="/rooms" element={<Rooms />} />
-                  <Route path="/rooms/:roomId/chart" element={<SeatingChart />} />
-
-                  <Route path="/reports" element={<Reports />} />
-
-                  <Route
-                    path="/examination/:sessionId/rooms"
-                    element={<Rooms />}
-                  />
-
-                  <Route
-                    path="/examination/:sessionId/rooms/:roomId/chart"
-                    element={<SeatingChart />}
-                  />
-
-                  <Route
-                    path="/examination/:sessionId/reports"
-                    element={<Reports />}
-                  />
-
-                  <Route path="/search" element={<Search />} />
-                </Routes>
-              </Layout>
-            </ProtectedRoute>
+            <Layout>
+              <Dashboard />
+            </Layout>
           }
         />
+
+        {/* Examination */}
+        <Route
+          path="/examination"
+          element={
+            <Layout>
+              <ExamSelect />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/examination/:sessionId"
+          element={
+            <Layout>
+              <ExamSession />
+            </Layout>
+          }
+        />
+
+        {/* NR Upload */}
+        <Route
+          path="/upload/:sessionId"
+          element={
+            <Layout>
+              <NRUpload />
+            </Layout>
+          }
+        />
+
+        {/* Students */}
+        <Route
+          path="/students"
+          element={
+            <Layout>
+              <Students />
+            </Layout>
+          }
+        />
+
+        {/* Rooms */}
+        <Route
+          path="/rooms"
+          element={
+            <Layout>
+              <Rooms />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/rooms/:roomId/chart"
+          element={
+            <Layout>
+              <SeatingChart />
+            </Layout>
+          }
+        />
+
+        {/* Reports */}
+        <Route
+          path="/reports"
+          element={
+            <Layout>
+              <Reports />
+            </Layout>
+          }
+        />
+
+        {/* Examination Rooms */}
+        <Route
+          path="/examination/:sessionId/rooms"
+          element={
+            <Layout>
+              <Rooms />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/examination/:sessionId/rooms/:roomId/chart"
+          element={
+            <Layout>
+              <SeatingChart />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/examination/:sessionId/reports"
+          element={
+            <Layout>
+              <Reports />
+            </Layout>
+          }
+        />
+
+        {/* Search */}
+        <Route
+          path="/search"
+          element={
+            <Layout>
+              <Search />
+            </Layout>
+          }
+        />
+
+        {/* Anything unknown → Dashboard */}
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
+
       </Routes>
     </HashRouter>
   );
