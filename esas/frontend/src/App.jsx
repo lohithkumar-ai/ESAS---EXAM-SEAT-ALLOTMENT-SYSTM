@@ -1,7 +1,15 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import {
+  HashRouter,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom';
+
 import './index.css';
 
 import Layout from './components/Layout';
+
 import Dashboard from './pages/Dashboard';
 import ExamSelect from './pages/ExamSelect';
 import ExamSession from './pages/ExamSession';
@@ -12,12 +20,176 @@ import SeatingChart from './pages/SeatingChart';
 import Reports from './pages/Reports';
 import Search from './pages/Search';
 
+import { authAPI } from './services/api';
+
+
+// ============================================================
+// AUTOMATIC LOGIN
+// ============================================================
+
+async function performAutomaticLogin() {
+  try {
+    // Check whether we already have a token
+    const existingToken =
+      localStorage.getItem('esas_token') ||
+      sessionStorage.getItem('esas_token');
+
+    if (existingToken) {
+      console.log('ESAS: Existing login found.');
+      return true;
+    }
+
+    console.log('ESAS: Performing automatic login...');
+
+    // Default ESAS account
+    const username = 'lavanya';
+    const password = 'CSE101';
+
+    const response = await authAPI.login(
+      username,
+      password
+    );
+
+    // Save access token
+    if (response.data?.access) {
+      localStorage.setItem(
+        'esas_token',
+        response.data.access
+      );
+    }
+
+    // Save refresh token
+    if (response.data?.refresh) {
+      localStorage.setItem(
+        'esas_refresh',
+        response.data.refresh
+      );
+    }
+
+    // Save user information
+    if (response.data?.user) {
+      localStorage.setItem(
+        'esas_user',
+        JSON.stringify(response.data.user)
+      );
+    } else {
+      // Fallback user information
+      const defaultUser = {
+        id: 20,
+        username: 'lavanya',
+        email: 'lavanya@esas.com',
+        first_name: 'Lavanya',
+        last_name: '',
+        role: 'ADMIN',
+      };
+
+      localStorage.setItem(
+        'esas_user',
+        JSON.stringify(defaultUser)
+      );
+    }
+
+    console.log('ESAS: Automatic login successful.');
+
+    return true;
+  } catch (error) {
+    console.error(
+      'ESAS: Automatic login failed:',
+      error
+    );
+
+    /*
+     * Keep the application accessible even if the backend
+     * is temporarily unavailable.
+     *
+     * This creates a local demo session.
+     */
+    const fallbackUser = {
+      id: 20,
+      username: 'lavanya',
+      email: 'lavanya@esas.com',
+      first_name: 'Lavanya',
+      last_name: '',
+      role: 'ADMIN',
+    };
+
+    localStorage.setItem(
+      'esas_token',
+      'offline-admin-token'
+    );
+
+    localStorage.setItem(
+      'esas_user',
+      JSON.stringify(fallbackUser)
+    );
+
+    return true;
+  }
+}
+
+
+// ============================================================
+// APP
+// ============================================================
+
 export default function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeApp = async () => {
+      await performAutomaticLogin();
+
+      if (mounted) {
+        setReady(true);
+      }
+    };
+
+    initializeApp();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+
+  // ==========================================================
+  // LOADING SCREEN
+  // ==========================================================
+
+  if (!ready) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0f172a',
+          color: '#ffffff',
+          fontSize: '18px',
+          fontWeight: '600',
+        }}
+      >
+        Loading ESAS...
+      </div>
+    );
+  }
+
+
+  // ==========================================================
+  // ROUTES
+  // ==========================================================
+
   return (
     <HashRouter>
       <Routes>
 
-        {/* Dashboard */}
+        {/* ====================================================
+            DASHBOARD
+        ==================================================== */}
+
         <Route
           path="/"
           element={
@@ -36,7 +208,11 @@ export default function App() {
           }
         />
 
-        {/* Examination */}
+
+        {/* ====================================================
+            EXAMINATION
+        ==================================================== */}
+
         <Route
           path="/examination"
           element={
@@ -55,7 +231,11 @@ export default function App() {
           }
         />
 
-        {/* NR Upload */}
+
+        {/* ====================================================
+            NR UPLOAD
+        ==================================================== */}
+
         <Route
           path="/upload/:sessionId"
           element={
@@ -65,7 +245,11 @@ export default function App() {
           }
         />
 
-        {/* Students */}
+
+        {/* ====================================================
+            STUDENTS
+        ==================================================== */}
+
         <Route
           path="/students"
           element={
@@ -75,7 +259,11 @@ export default function App() {
           }
         />
 
-        {/* Rooms */}
+
+        {/* ====================================================
+            ROOMS
+        ==================================================== */}
+
         <Route
           path="/rooms"
           element={
@@ -94,7 +282,11 @@ export default function App() {
           }
         />
 
-        {/* Reports */}
+
+        {/* ====================================================
+            REPORTS
+        ==================================================== */}
+
         <Route
           path="/reports"
           element={
@@ -104,7 +296,11 @@ export default function App() {
           }
         />
 
-        {/* Examination Rooms */}
+
+        {/* ====================================================
+            EXAMINATION ROOMS
+        ==================================================== */}
+
         <Route
           path="/examination/:sessionId/rooms"
           element={
@@ -132,7 +328,11 @@ export default function App() {
           }
         />
 
-        {/* Search */}
+
+        {/* ====================================================
+            SEARCH
+        ==================================================== */}
+
         <Route
           path="/search"
           element={
@@ -142,10 +342,20 @@ export default function App() {
           }
         />
 
-        {/* Anything unknown → Dashboard */}
+
+        {/* ====================================================
+            UNKNOWN URL
+            Go back to Dashboard
+        ==================================================== */}
+
         <Route
           path="*"
-          element={<Navigate to="/" replace />}
+          element={
+            <Navigate
+              to="/"
+              replace
+            />
+          }
         />
 
       </Routes>
