@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = 'https://esas-exam-seat-allotment-systm-1.onrender.com';
 
 
-const api = axios.create({
+cconst api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
 });
