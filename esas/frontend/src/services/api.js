@@ -30,16 +30,46 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Auto-login recovery if token is invalid or expired
+let isLoggingIn = null;
+
+async function refreshAuthToken() {
+  if (isLoggingIn) return isLoggingIn;
+  isLoggingIn = (async () => {
+    try {
+      localStorage.removeItem('esas_token');
+      const res = await axios.post(API_BASE + '/auth/login/', {
+        username: 'lavanya',
+        password: 'CSE101',
+      });
+      if (res.data?.access) {
+        localStorage.setItem('esas_token', res.data.access);
+        if (res.data?.refresh) localStorage.setItem('esas_refresh', res.data.refresh);
+        if (res.data?.user) localStorage.setItem('esas_user', JSON.stringify(res.data.user));
+        return res.data.access;
+      }
+    } catch (e) {
+      console.error('Auto re-login failed:', e);
+    } finally {
+      isLoggingIn = null;
+    }
+    return null;
+  })();
+  return isLoggingIn;
+}
+
 // Handle API errors
-// IMPORTANT: Login page was removed, so do NOT redirect to /login.
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.warn(
-        'Authentication required:',
-        error.config?.url
-      );
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const newToken = await refreshAuthToken();
+      if (newToken) {
+        originalRequest.headers.Authorization = 'Bearer ' + newToken;
+        return api(originalRequest);
+      }
     }
 
     return Promise.reject(error);

@@ -61,8 +61,19 @@ export default function ExamSelect() {
       setShowCreate(false);
       setNewSession({ name: '', code: '' });
       loadSessions(softwareId);
-    } catch (err) { 
-      alert(err.response?.data?.error || 'Failed to create session');
+    } catch (err) {
+      const data = err.response?.data;
+      let msg = 'Failed to create session';
+      if (typeof data === 'string') {
+        msg = data;
+      } else if (data?.error) {
+        msg = data.error;
+      } else if (data?.detail) {
+        msg = data.detail;
+      } else if (data && typeof data === 'object') {
+        msg = Object.entries(data).map(([k, v]) => k + ': ' + (Array.isArray(v) ? v.join(', ') : v)).join('\n');
+      }
+      alert(msg);
     }
   };
 

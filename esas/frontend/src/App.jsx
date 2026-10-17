@@ -34,7 +34,7 @@ async function performAutomaticLogin() {
       localStorage.getItem('esas_token') ||
       sessionStorage.getItem('esas_token');
 
-    if (existingToken) {
+    if (existingToken && existingToken !== 'offline-admin-token') {
       console.log('ESAS: Existing login found.');
       return true;
     }
