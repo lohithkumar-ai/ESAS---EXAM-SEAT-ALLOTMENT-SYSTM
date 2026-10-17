@@ -1,1 +1,15 @@
-  a i o s q l i t e = = 0 . 2 0 . 0   a l e m b i c = = 1 . 1 3 . 0   a n n o t a t e d - t y p e s = = 0 . 7 . 0   a n y i o = = 4 . 1 4 . 2   a s g i r e f = = 3 . 1 2 . 1   b c r y p t = = 5 . 0 . 0   c e r t i f i = = 2 0 2 6 . 6 . 1 7   c f f i = = 2 . 1 . 0   c h a r s e t - n o r m a l i z e r = = 3 . 5 . 1   c l i c k = = 8 . 4 . 2   c o l o r a m a = = 0 . 4 . 6   c r y p t o g r a p h y = = 4 9 . 0 . 0   d j - d a t a b a s e - u r l = = 3 . 1 . 2   D j a n g o = = 5 . 2 . 1 7   d j a n g o - c o r s - h e a d e r s = = 4 . 9 . 0   d j a n g o - f i l t e r = = 2 6 . 2   d j a n g o r e s t f r a m e w o r k = = 3 . 1 8 . 1   d j a n g o r e s t f r a m e w o r k _ s i m p l e j w t = = 5 . 5 . 1   d n s p y t h o n = = 2 . 8 . 0   e c d s a = = 0 . 1 9 . 2   e m a i l - v a l i d a t o r = = 2 . 3 . 0   e t _ x m l f i l e = = 2 . 0 . 0   f a s t a p i = = 0 . 1 1 5 . 0   g r e e n l e t = = 3 . 5 . 3   g u n i c o r n = = 2 6 . 2 . 0   h 1 1 = = 0 . 1 6 . 0   h t t p c o r e = = 1 . 0 . 9   h t t p t o o l s = = 0 . 8 . 0   h t t p x = = 0 . 2 7 . 0   i d n a = = 3 . 1 8   M a k o = = 1 . 3 . 1 2   M a r k u p S a f e = = 3 . 0 . 3  numpy==2.4.6  o p e n c v - p y t h o n = = 5 . 0 . 0 . 9 3   o p e n p y x l = = 3 . 1 . 5   p a n d a s = = 2 . 3 . 3   p a s s l i b = = 1 . 7 . 4   p i l l o w = = 1 1 . 3 . 0   p s y c o p g 2 - b i n a r y = = 2 . 9 . 1 3   p y a s n 1 = = 0 . 6 . 4   p y c p a r s e r = = 3 . 0   p y d a n t i c = = 2 . 9 . 0   p y d a n t i c - s e t t i n g s = = 2 . 5 . 0   p y d a n t i c _ c o r e = = 2 . 2 3 . 2   P y J W T = = 2 . 1 4 . 0   p y t h o n - d a t e u t i l = = 2 . 9 . 0 . p o s t 0   p y t h o n - d o t e n v = = 1 . 0 . 1   p y t h o n - j o s e = = 3 . 3 . 0   p y t h o n - m u l t i p a r t = = 0 . 0 . 9   p y t z = = 2 0 2 6 . 5   P y Y A M L = = 6 . 0 . 3   r e p o r t l a b = = 4 . 5 . 1   r s a = = 4 . 9 . 1   s i x = = 1 . 1 7 . 0   s n i f f i o = = 1 . 3 . 1   S Q L A l c h e m y = = 2 . 0 . 3 5   s q l p a r s e = = 0 . 6 . 0   s t a r l e t t e = = 0 . 3 8 . 6   t y p i n g _ e x t e n s i o n s = = 4 . 1 6 . 0   t z d a t a = = 2 0 2 6 . 3   u v i c o r n = = 0 . 3 0 . 0   w a t c h f i l e s = = 1 . 2 . 0   w e b s o c k e t s = = 1 6 . 1 . 1   w h i t e n o i s e = = 6 . 1 2 . 0   
+django>=5.1,<6.0
+djangorestframework>=3.15,<4.0
+django-cors-headers>=4.4,<5.0
+django-filter>=24.0
+djangorestframework-simplejwt>=5.3,<6.0
+openpyxl>=3.1,<4.0
+pandas>=2.2,<3.0
+numpy>=1.26
+reportlab>=4.2,<5.0
+python-dotenv>=1.0,<2.0
+pillow>=10.0,<12.0
+gunicorn>=21.0
+whitenoise>=6.6
+dj-database-url>=2.1
+psycopg2-binary>=2.9
