@@ -2,7 +2,7 @@ services:
   - type: web
     name: esas-exam-seat-allotment-systm
     runtime: python
-    buildCommand: chmod +x ./build.sh && ./build.sh
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
     plan: free
     autoDeploy: true
