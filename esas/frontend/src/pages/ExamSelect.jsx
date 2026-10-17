@@ -23,12 +23,25 @@ export default function ExamSelect() {
     }
   }, [softwareId]);
 
+  const DEFAULT_SOFTWARES = [
+    { id: 1, name: 'March / April Examination' },
+    { id: 2, name: 'October / November Examination' }
+  ];
+
   const loadSoftwares = async () => {
     setLoading(true);
     try {
       const res = await examAPI.getSoftware();
-      setSoftwares(res.data.results || res.data || []);
-    } catch (err) { console.error(err); }
+      const list = res.data?.results || res.data || [];
+      if (Array.isArray(list) && list.length > 0) {
+        setSoftwares(list);
+      } else {
+        setSoftwares(DEFAULT_SOFTWARES);
+      }
+    } catch (err) {
+      console.error('Failed to load softwares from API:', err);
+      setSoftwares(DEFAULT_SOFTWARES);
+    }
     finally { setLoading(false); }
   };
 

@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_BASE = 'https://esas-exam-seat-allotment-systm-1.onrender.com';
+let rawBase = import.meta.env.VITE_API_URL || 'https://esas-exam-seat-allotment-systm-1.onrender.com';
+rawBase = rawBase.replace(/\/+$/, '');
+if (!rawBase.endsWith('/api')) {
+  rawBase += '/api';
+}
+const API_BASE = rawBase;
 
 const api = axios.create({
   baseURL: API_BASE,
