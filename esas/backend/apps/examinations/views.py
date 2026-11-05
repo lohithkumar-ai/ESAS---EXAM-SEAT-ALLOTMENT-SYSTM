@@ -159,11 +159,33 @@ def dashboard_stats(request):
     )
 
     session_data = None
-    if active_session and str(active_session.id) == str(session_id):
-        session_data = ExamSessionSerializer(active_session).data
+    target_session = ExamSession.objects.filter(id=session_id).first()
+    if target_session:
+        session_data = ExamSessionSerializer(target_session).data
+
+    unique_students_total = candidates.values('student').distinct().count()
+    allocated_student_ids = set(allocations.values_list('candidate__student_id', flat=True))
+    unique_allocated_students = len(allocated_student_ids)
+    duplicate_candidates = max(0, total - unique_students_total)
+    unplaced_candidates = max(0, unique_students_total - unique_allocated_students)
+
+    if total == allocated:
+        unallocated_reason = "All registered candidates have been allocated."
+    elif unplaced_candidates == 0:
+        unallocated_reason = (
+            f"All {unique_allocated_students} unique physical students are 100% allocated. "
+            f"The {total - allocated} unallocated records are duplicate nominal roll entries "
+            f"(students enrolled in multiple subjects or sheets) who have already been assigned a seat."
+        )
+    else:
+        unallocated_reason = (
+            f"{unplaced_candidates} candidates could not be placed due to room capacity or anti-clash constraints, "
+            f"and {duplicate_candidates} are duplicate nominal roll entries."
+        )
 
     return Response({
         'total_students': total,
+        'unique_students': unique_students_total,
         'regular_students': regular,
         'supplementary_students': supplementary,
         'total_subjects': subjects,
@@ -171,6 +193,16 @@ def dashboard_stats(request):
         'total_rooms': Room.objects.filter(is_active=True).count(),
         'allocated_seats': allocated,
         'remaining_seats': total - allocated,
+        'unallocated_reason': unallocated_reason,
+        'unallocated_breakdown': {
+            'total_unallocated': total - allocated,
+            'unique_students_total': unique_students_total,
+            'unique_students_allocated': unique_allocated_students,
+            'unique_students_unallocated': unplaced_candidates,
+            'duplicate_candidates': duplicate_candidates,
+            'unplaced_candidates': unplaced_candidates,
+            'reason_summary': unallocated_reason,
+        },
         'year_distribution': year_dist,
         'branch_distribution': branch_dist,
         'room_utilization': room_util,

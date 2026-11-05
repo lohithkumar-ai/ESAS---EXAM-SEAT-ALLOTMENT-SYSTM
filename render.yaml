@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: esas-exam-seat-allotment-systm
+    name: esas-backend
     runtime: python
     rootDir: esas/backend
     buildCommand: chmod +x ./build.sh && ./build.sh
@@ -10,14 +10,14 @@ services:
     healthCheckPath: /health/
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
+        value: 3.12.0
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
         value: 'False'
       - key: ALLOWED_HOSTS
-        value: .onrender.com,localhost,127.0.0.1,esas-exam-seat-allotment-systm.onrender.com
+        value: '*'
       - key: CORS_ALLOWED_ORIGINS
-        value: https://esas-exam-seat-allotment-systm.vercel.app,https://frontend-rho-jade-80.vercel.app,http://localhost:5173
+        value: https://*.vercel.app,http://localhost:5173
       - key: CSRF_TRUSTED_ORIGINS
-        value: https://*.onrender.com,https://frontend-rho-jade-80.vercel.app,https://esas-exam-seat-allotment-systm.onrender.com,https://*.vercel.app
+        value: https://*.onrender.com,https://*.vercel.app

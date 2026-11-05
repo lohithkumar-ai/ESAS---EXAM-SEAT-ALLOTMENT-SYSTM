@@ -28,8 +28,8 @@ class ExamCandidateViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
         session_id = self.request.query_params.get('session_id')
-        if session_id:
-            qs = qs.filter(exam_session_id=session_id)
+        if session_id and str(session_id).isdigit():
+            qs = qs.filter(exam_session_id=int(session_id))
 
         category = self.request.query_params.get('category')
         if category:
@@ -37,29 +37,42 @@ class ExamCandidateViewSet(viewsets.ReadOnlyModelViewSet):
 
         branch = self.request.query_params.get('branch')
         if branch:
-            qs = qs.filter(branch__code=branch.upper())
+            b_up = branch.strip().upper()
+            aliases = {
+                'CM': ['CM', 'CME'],
+                'CME': ['CM', 'CME'],
+                'EC': ['EC', 'ECE'],
+                'ECE': ['EC', 'ECE'],
+                'EE': ['EE', 'EEE'],
+                'EEE': ['EE', 'EEE'],
+                'M': ['M', 'ME'],
+                'ME': ['M', 'ME'],
+            }
+            codes = aliases.get(b_up, [b_up])
+            qs = qs.filter(branch__code__in=codes)
 
         year = self.request.query_params.get('year')
         if year:
             qs = qs.filter(academic_year__year=year)
 
-        # Annotate with allocation info
+        # Annotate with allocation info (direct candidate mapping or student in session)
+        allocation_subquery = SeatAllocation.objects.filter(
+            Q(candidate_id=OuterRef('pk')) |
+            Q(candidate__student_id=OuterRef('student_id'), exam_session_id=OuterRef('exam_session_id'))
+        )
+
         qs = qs.annotate(
             room_number=Subquery(
-                SeatAllocation.objects.filter(
-                    candidate_id=OuterRef('pk')
-                ).values('room__room_number')[:1],
+                allocation_subquery.values('room__room_number')[:1],
                 output_field=CharField(),
             ),
             seat_number=Subquery(
-                SeatAllocation.objects.filter(
-                    candidate_id=OuterRef('pk')
-                ).values('seat__seat_number')[:1],
+                allocation_subquery.values('seat__seat_number')[:1],
                 output_field=IntegerField(),
             ),
         )
 
-        return qs.order_by('room_number', 'seat_number', 'student__pin')
+        return qs.order_by('student__pin', 'id')
 
 
 @api_view(['GET'])
@@ -84,24 +97,25 @@ def search_students(request):
         Q(student__pin__icontains=query) | Q(student__name__icontains=query)
     )
 
-    if session_id:
-        candidates = candidates.filter(exam_session_id=session_id)
+    if session_id and str(session_id).isdigit():
+        candidates = candidates.filter(exam_session_id=int(session_id))
 
-    # Annotate with allocation
+    # Annotate with allocation info
+    allocation_subquery = SeatAllocation.objects.filter(
+        Q(candidate_id=OuterRef('pk')) |
+        Q(candidate__student_id=OuterRef('student_id'), exam_session_id=OuterRef('exam_session_id'))
+    )
+
     candidates = candidates.annotate(
         room_number=Subquery(
-            SeatAllocation.objects.filter(
-                candidate_id=OuterRef('pk')
-            ).values('room__room_number')[:1],
+            allocation_subquery.values('room__room_number')[:1],
             output_field=CharField(),
         ),
         seat_number=Subquery(
-            SeatAllocation.objects.filter(
-                candidate_id=OuterRef('pk')
-            ).values('seat__seat_number')[:1],
+            allocation_subquery.values('seat__seat_number')[:1],
             output_field=IntegerField(),
         ),
-    )[:50]
+    ).order_by('-exam_session_id', 'student__pin')[:50]
 
     serializer = ExamCandidateSerializer(candidates, many=True)
     return Response({

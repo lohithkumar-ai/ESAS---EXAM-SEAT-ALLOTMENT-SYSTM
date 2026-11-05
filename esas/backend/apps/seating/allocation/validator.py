@@ -41,11 +41,16 @@ def validate_allocation(exam_session):
     for alloc in allocations:
         student_id = alloc.candidate.student_id
         if student_id in student_seats:
-            warnings.append(
-                f'{alloc.candidate.student.pin} is enrolled in multiple exams and assigned to '
-                f'Room {alloc.room.room_number} Seat {alloc.seat.seat_number} '
-                f'and Room {student_seats[student_id]["room"]} Seat {student_seats[student_id]["seat"]}.'
-            )
+            errors.append({
+                'rule': 'Rule 1',
+                'message': 'Student has multiple seats',
+                'details': (
+                    f'{alloc.candidate.student.pin} is allocated to '
+                    f'Room {alloc.room.room_number} Seat {alloc.seat.seat_number} '
+                    f'AND Room {student_seats[student_id]["room"]} '
+                    f'Seat {student_seats[student_id]["seat"]}.'
+                ),
+            })
         else:
             student_seats[student_id] = {
                 'room': alloc.room.room_number,
@@ -100,6 +105,28 @@ def validate_allocation(exam_session):
 
     # ── Rule 10: Room + seat must be unique ──────────────────────────────
     # Already checked by Rule 2 above
+
+    # ── Rule 5: No two adjacent seats (↔ ↕ ↗↘) share a branch ─────────
+    from collections import defaultdict as _dd
+    room_grid = _dd(dict)  # room_id -> {(col, row): branch_code}
+    for alloc in allocations:
+        room_grid[alloc.room_id][(alloc.seat.column, alloc.seat.row)] = alloc.candidate.branch.code
+
+    adjacency_violations = 0
+    # Check all 4 forward-direction neighbour pairs (avoids double-counting)
+    _DIRECTIONS = [(1, 0), (0, 1), (1, 1), (1, -1)]  # right, below, diag-right-down, diag-right-up
+    for room_id, grid in room_grid.items():
+        for (col, row), branch in grid.items():
+            for dc, dr in _DIRECTIONS:
+                neighbour = grid.get((col + dc, row + dr))
+                if neighbour and neighbour == branch:
+                    adjacency_violations += 1
+
+    if adjacency_violations:
+        warnings.append(
+            f'{adjacency_violations} pairs of adjacent seats (horizontal/vertical/diagonal) '
+            f'share the same branch.'
+        )
 
     stats = {
         'total_candidates': candidates.count(),

@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { examAPI } from '../services/api';
-import { Calendar, Plus, ChevronRight, Trash2, ArrowLeft } from 'lucide-react';
+import {
+  Calendar, Plus, ChevronRight, Trash2, ArrowLeft,
+  BookOpen, Users, Clock, ShieldCheck
+} from 'lucide-react';
+import StatusBadge from '../components/common/StatusBadge';
+import EmptyState from '../components/common/EmptyState';
+import Modal from '../components/common/Modal';
 
 export default function ExamSelect() {
   const [softwares, setSoftwares] = useState([]);
@@ -10,10 +16,10 @@ export default function ExamSelect() {
   const [showCreate, setShowCreate] = useState(false);
   const [newSession, setNewSession] = useState({ name: '', code: '' });
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const softwareId = searchParams.get('software') || '';
 
-  useEffect(() => { 
+  useEffect(() => {
     loadSoftwares();
   }, []);
 
@@ -41,8 +47,9 @@ export default function ExamSelect() {
     } catch (err) {
       console.error('Failed to load softwares from API:', err);
       setSoftwares(DEFAULT_SOFTWARES);
+    } finally {
+      setLoading(false);
     }
-    finally { setLoading(false); }
   };
 
   const loadSessions = async (sId) => {
@@ -50,8 +57,11 @@ export default function ExamSelect() {
     try {
       const res = await examAPI.getSessions(sId);
       setSessions(res.data.results || res.data || []);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCreate = async (e) => {
@@ -71,7 +81,9 @@ export default function ExamSelect() {
       } else if (data?.detail) {
         msg = data.detail;
       } else if (data && typeof data === 'object') {
-        msg = Object.entries(data).map(([k, v]) => k + ': ' + (Array.isArray(v) ? v.join(', ') : v)).join('\n');
+        msg = Object.entries(data)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+          .join('\n');
       }
       alert(msg);
     }
@@ -88,42 +100,52 @@ export default function ExamSelect() {
     }
   };
 
-  const statusColors = {
-    DRAFT: 'badge-primary',
-    NR_UPLOADED: 'badge-accent',
-    VALIDATED: 'badge-warning',
-    ALLOCATION_GENERATED: 'badge-success',
-    LOCKED: 'badge-error',
-  };
-
   if (!softwareId) {
     return (
       <div className="fade-in">
         <div className="page-header">
           <div>
             <h1 className="page-title">Examination Software</h1>
-            <p className="page-subtitle">Select an examination software mode to view sessions</p>
+            <p className="page-subtitle">Select examination software cycle to view active sessions</p>
           </div>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40 }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
+          <div style={{ textAlign: 'center', padding: 48 }}>
+            <div className="spinner" style={{ margin: '0 auto 12px' }} />
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading examination programs...</span>
+          </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 32 }}>
-            {softwares.map((sw, index) => (
-              <div key={sw.id} className="session-card" onClick={() => navigate(`/examination?software=${sw.id}`)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 'var(--radius-md)',
-                    background: index % 2 === 0 ? 'linear-gradient(135deg, #6366f1, #818cf8)' : 'linear-gradient(135deg, #06b6d4, #22d3ee)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Calendar size={24} color="white" />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+            {softwares.map((sw) => (
+              <div
+                key={sw.id}
+                className="session-card"
+                onClick={() => navigate(`/examination?software=${sw.id}`)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--primary-subtle)',
+                      color: 'var(--primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Calendar size={22} />
                   </div>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div className="session-card-title">{sw.name}</div>
-                    <div className="session-card-sub">Manage sessions for this software</div>
+                    <div className="session-card-sub">
+                      Autonomous Exam Allotment Engine
+                    </div>
                   </div>
+                  <ChevronRight size={18} color="var(--text-muted)" />
                 </div>
               </div>
             ))}
@@ -141,113 +163,128 @@ export default function ExamSelect() {
         <div>
           <button
             onClick={() => navigate('/examination')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 16px 8px 10px',
-              marginBottom: 8,
-              background: 'rgba(99, 102, 241, 0.08)',
-              border: '1px solid rgba(99, 102, 241, 0.15)',
-              borderRadius: 20,
-              color: 'var(--accent)',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              letterSpacing: '0.01em',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
-              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-              e.currentTarget.style.transform = 'translateX(-2px)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.08)';
-              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.15)';
-              e.currentTarget.style.transform = 'translateX(0)';
-            }}
+            className="btn btn-secondary btn-sm"
+            style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <span style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 22,
-              height: 22,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--accent), var(--accent-hover))',
-            }}>
-              <ArrowLeft size={13} color="#fff" />
-            </span>
-            Back to Software Selection
+            <ArrowLeft size={14} />
+            <span>Back to Software Selection</span>
           </button>
           <h1 className="page-title">{activeSoftware?.name || 'Examination Sessions'}</h1>
-          <p className="page-subtitle">Select or create an examination session for this software</p>
+          <p className="page-subtitle">Manage examination terms, sessions, candidate rosters and seat allotment</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(!showCreate)}>
-          <Plus size={16} /> New Session
+        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+          <Plus size={16} />
+          <span>New Session</span>
         </button>
       </div>
 
-      {/* Create form */}
-      {showCreate && (
-        <div className="card fade-in" style={{ marginBottom: 24 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>
-            Create New Examination Session
-          </h3>
-          <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 16, alignItems: 'end' }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Session Name</label>
-              <input className="form-input" placeholder="e.g., March-April 2027"
-                value={newSession.name}
-                onChange={e => setNewSession({ ...newSession, name: e.target.value })}
-                required />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Session Code</label>
-              <input className="form-input" placeholder="e.g., MAR27"
-                value={newSession.code}
-                onChange={e => setNewSession({ ...newSession, code: e.target.value })}
-                required />
-            </div>
-            <button type="submit" className="btn btn-success">Create</button>
-          </form>
-        </div>
-      )}
+      {/* New Session Modal */}
+      <Modal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Create Examination Session"
+        subtitle={`Session under ${activeSoftware?.name || 'Examination Software'}`}
+      >
+        <form onSubmit={handleCreate}>
+          <div className="form-group">
+            <label className="form-label">Session Name</label>
+            <input
+              className="form-input"
+              placeholder="e.g., MARCH 2027 5TH SEM"
+              value={newSession.name}
+              onChange={(e) => setNewSession({ ...newSession, name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Session Code</label>
+            <input
+              className="form-input"
+              placeholder="e.g., MAR27"
+              value={newSession.code}
+              onChange={(e) => setNewSession({ ...newSession, code: e.target.value })}
+              required
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowCreate(false)}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Create Session
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Sessions list */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40 }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
-      ) : sessions.length === 0 ? (
-        <div className="card empty-state">
-          <div className="empty-state-title">No Sessions Yet</div>
-          <div className="empty-state-text">Create your first examination session to get started.</div>
+        <div style={{ textAlign: 'center', padding: 48 }}>
+          <div className="spinner" style={{ margin: '0 auto 12px' }} />
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading sessions...</span>
         </div>
+      ) : sessions.length === 0 ? (
+        <EmptyState
+          icon={Calendar}
+          title="No Sessions Configured"
+          description="Create your first examination session to start uploading Nominal Rolls and generating seat allocations."
+          action={
+            <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
+              <Plus size={14} /> Create First Session
+            </button>
+          }
+        />
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="table-container">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Session</th>
+                <th>Session Details</th>
                 <th>Code</th>
                 <th>Status</th>
-                <th>Candidates</th>
-                <th></th>
+                <th>Candidate Count</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {sessions.map(s => (
-                <tr key={s.id} style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/examination/${s.id}`)}>
-                  <td style={{ fontWeight: 600 }}>{s.name}</td>
-                  <td>{s.code}</td>
-                  <td><span className={`badge ${statusColors[s.status] || 'badge-primary'}`}>{s.status_display}</span></td>
-                  <td>{s.candidate_count || 0}</td>
+              {sessions.map((s) => (
+                <tr
+                  key={s.id}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/examination/${s.id}`)}
+                >
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
-                      <button 
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {s.name}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                      Session ID: #{s.id}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge badge-neutral">{s.code}</span>
+                  </td>
+                  <td>
+                    <StatusBadge
+                      status={s.status || (s.candidate_count > 0 ? 'allocated' : 'draft')}
+                      text={s.status_display || s.status}
+                    />
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                      <Users size={14} color="var(--text-muted)" />
+                      <span>{s.candidate_count || 0} students</span>
+                    </div>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                      <button
                         onClick={(e) => handleDeleteSession(e, s.id)}
-                        className="btn-ghost" 
+                        className="btn-ghost"
                         style={{ padding: 6, color: 'var(--error)' }}
                         title="Delete Session"
                       >

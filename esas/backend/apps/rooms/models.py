@@ -4,11 +4,25 @@ from django.conf import settings
 
 class Room(models.Model):
     """A physical examination room."""
-    room_number = models.CharField(max_length=20)
+    NUMBERING_CHOICES = [
+        ('SERPENTINE', 'Serpentine (Zig-Zag)'),
+        ('STRAIGHT', 'Straight Column-wise'),
+    ]
+
+    room_number = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100, blank=True)
     capacity = models.PositiveIntegerField(default=42)
     columns = models.PositiveIntegerField(default=3)
     rows = models.PositiveIntegerField(default=14)
+    numbering_order = models.CharField(
+        max_length=20,
+        choices=NUMBERING_CHOICES,
+        default='SERPENTINE',
+    )
+    is_outdated = models.BooleanField(
+        default=False,
+        help_text='True if room layout changed after seat allocation was generated',
+    )
     is_active = models.BooleanField(default=True)
     display_order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

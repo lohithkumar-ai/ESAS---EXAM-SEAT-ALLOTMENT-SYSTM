@@ -164,15 +164,40 @@ export default function App() {
         style={{
           minHeight: '100vh',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#0f172a',
-          color: '#ffffff',
-          fontSize: '18px',
-          fontWeight: '600',
+          background: 'var(--bg-primary, #F7F8F7)',
+          color: 'var(--text-primary, #202B29)',
+          fontFamily: "'Inter', sans-serif",
+          gap: 16,
         }}
       >
-        Loading ESAS...
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: '#398B72',
+            color: '#FFFFFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 800,
+            fontSize: 18,
+            boxShadow: '0 4px 14px rgba(57, 139, 114, 0.25)',
+          }}
+        >
+          E
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.3px' }}>
+            ESAS Allotment System
+          </div>
+          <div style={{ fontSize: 12.5, color: '#7C8985' }}>
+            Initializing examination environment...
+          </div>
+        </div>
       </div>
     );
   }

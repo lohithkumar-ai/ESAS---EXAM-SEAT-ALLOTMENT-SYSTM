@@ -143,6 +143,65 @@ class AllocationEngine:
             # Step 10: Validate
             validation = validate_allocation(self.exam_session)
 
+            # Step 11: Calculate unallocated diagnostics and specific reasons
+            allocated_candidate_ids = {a['candidate'].id for a in all_allocations}
+            allocated_student_map = {a['candidate'].student_id: a for a in all_allocations}
+
+            unallocated_records = [c for c in self.candidates if c.id not in allocated_candidate_ids]
+            duplicate_roll_count = 0
+            other_unallocated = []
+            unallocated_details = []
+
+            for c in unallocated_records:
+                if c.student_id in allocated_student_map:
+                    alloc = allocated_student_map[c.student_id]
+                    duplicate_roll_count += 1
+                    unallocated_details.append({
+                        'pin': c.student.pin,
+                        'name': c.student.name,
+                        'branch': c.branch.code,
+                        'category': c.category,
+                        'reason': f"Already allocated to Room {alloc['room'].room_number}, Seat S{alloc['seat'].seat_number} (Duplicate/multi-subject entry)"
+                    })
+                else:
+                    other_unallocated.append(c)
+                    unallocated_details.append({
+                        'pin': c.student.pin,
+                        'name': c.student.name,
+                        'branch': c.branch.code,
+                        'category': c.category,
+                        'reason': "Could not be placed due to room capacity or anti-clash buffer constraints"
+                    })
+
+            unique_students_total = len(set(c.student_id for c in self.candidates))
+            unique_students_allocated = len(allocated_student_map)
+            unique_students_unallocated = unique_students_total - unique_students_allocated
+
+            if len(unallocated_records) == 0:
+                reason_summary = "All registered candidates have been successfully allocated."
+            elif len(other_unallocated) == 0:
+                reason_summary = (
+                    f"All {unique_students_allocated} unique physical students are 100% allocated. "
+                    f"The {duplicate_roll_count} unallocated records are duplicate nominal roll entries "
+                    f"(students enrolled in multiple subjects or sheets) who have already been assigned a seat."
+                )
+            else:
+                reason_summary = (
+                    f"{len(other_unallocated)} candidates could not be placed due to room capacity or anti-clash constraints, "
+                    f"and {duplicate_roll_count} are duplicate nominal roll entries who are already seated."
+                )
+
+            unallocated_breakdown = {
+                'total_unallocated': len(unallocated_records),
+                'unique_students_total': unique_students_total,
+                'unique_students_allocated': unique_students_allocated,
+                'unique_students_unallocated': unique_students_unallocated,
+                'duplicate_candidates': duplicate_roll_count,
+                'unplaced_candidates': len(other_unallocated),
+                'reason_summary': reason_summary,
+                'details': unallocated_details[:100],
+            }
+
             return {
                 'success': True,
                 'message': (
@@ -155,6 +214,7 @@ class AllocationEngine:
                 'candidates_unallocated': (
                     len(self.candidates) - len(all_allocations)
                 ),
+                'unallocated_breakdown': unallocated_breakdown,
                 'substitutions': all_substitutions,
                 'validation': validation,
                 'regular_count': len(regular_candidates),
@@ -195,8 +255,8 @@ class AllocationEngine:
 
         candidates = list(qs)
         
-        # Jumble candidates thoroughly (Regular/Supply, Years, Semesters)
-        random.shuffle(candidates)
+        # Order candidates by PIN so they are seated in natural roll number sequence
+        candidates.sort(key=lambda c: (c.student.pin, c.id))
         
         self.candidates = candidates
 
@@ -289,12 +349,25 @@ class AllocationEngine:
         allocations = []
         substitutions = []
 
-        # Build per-branch candidate queues from the given candidates (excluding already seated candidates)
+        # ── Deduplicate: keep only ONE candidate record per student ──
+        # A student taking multiple subjects produces multiple ExamCandidate
+        # rows.  We must seat each *student* only once.  Pick the first
+        # candidate encountered (list is already shuffled).
+        allocated_student_ids = set()
+        # Also collect student IDs that were already seated in a prior phase
+        for cand in allocated_candidates:
+            # allocated_candidates stores candidate.id; we need to look up
+            # the student_id for those candidates already seated.
+            pass
+        # Build a set of student_ids already seated from occupied_seats
+        for (_, _), prev_cand in occupied_seats.items():
+            allocated_student_ids.add(prev_cand.student_id)
+
         candidate_queues = defaultdict(deque)
-        shuffled = list(candidates)
-        random.shuffle(shuffled)
-        for c in shuffled:
-            if c.id not in allocated_candidates:
+        # Keep candidates ordered by PIN so each branch is allocated in numerical order
+        ordered_candidates = sorted(candidates, key=lambda c: (c.student.pin, c.id))
+        for c in ordered_candidates:
+            if c.id not in allocated_candidates and c.student_id not in allocated_student_ids:
                 candidate_queues[c.branch.code].append(c)
 
         # Track remaining candidates per branch
@@ -302,7 +375,7 @@ class AllocationEngine:
         for b_code, q in candidate_queues.items():
             remaining[b_code] = len(q)
 
-        for room in self.rooms:
+        for room_idx, room in enumerate(self.rooms):
             # Get ALL seats for this room
             room_seats = list(
                 room.seats.filter(is_active=True).order_by('seat_number')
@@ -322,10 +395,31 @@ class AllocationEngine:
             if total_remaining == 0:
                 break
 
+            # Calculate branch pool for this room.
+            # Strategy: when >= 3 branches available, we can fill most seats
+            # with perfect tiling (few buffers needed). When only 2 branches
+            # remain, ~50% of seats become buffers. When 1 branch remains,
+            # ~66% become buffers. So we pack MORE candidates into rooms
+            # while diversity is high, avoiding wasteful spreading later.
+            active_branch_counts = {}
+            for b_code, q in candidate_queues.items():
+                avail_q = sum(1 for c in q if c.id not in allocated_candidates and c.student_id not in allocated_student_ids)
+                if avail_q > 0:
+                    active_branch_counts[b_code] = avail_q
+            active_branches = len(active_branch_counts)
+
+            if active_branches >= 3:
+                # With 3-4 branches, tiling is efficient — fill room to capacity
+                room_branch_pools = dict(active_branch_counts)
+            else:
+                # Few branches left — give this room ALL remaining candidates.
+                # The branch_balancer will insert buffer benches as needed.
+                room_branch_pools = dict(active_branch_counts)
+
             # Generate branch zigzag sequence for the empty seat count
             branch_seq = generate_branch_sequence(
                 total_seats=len(empty_seats),
-                branch_pools={b: len(q) for b, q in candidate_queues.items() if len(q) > 0},
+                branch_pools=room_branch_pools if any(room_branch_pools.values()) else {b: len(q) for b, q in candidate_queues.items() if len(q) > 0},
                 columns=room.columns,
                 rows=room.rows,
                 target_branches=self.target_branches,
@@ -339,61 +433,71 @@ class AllocationEngine:
                     if seat_obj:
                         room_occupants[seat_obj.seat_number] = cand
 
+            # Build seat lookup for fast access by seat_number
+            seat_obj_map = {s.seat_number: s for s in room_seats}
+
             for seat_idx, seat in enumerate(empty_seats):
                 if seat_idx >= len(branch_seq):
                     break
 
                 desired_branch = branch_seq[seat_idx]
 
+                # If seat is designated as an empty buffer bench, leave it empty
+                if not desired_branch:
+                    continue
+
                 # Determine adjacent subjects (same-row neighbors)
                 adjacent_subjects = set()
                 col = seat.column
                 row = seat.row
                 for sn, prev_cand in room_occupants.items():
-                    prev_seat_obj = next(
-                        (s for s in room_seats if s.seat_number == sn), None
-                    )
+                    prev_seat_obj = seat_obj_map.get(sn)
                     if prev_seat_obj and prev_seat_obj.row == row:
                         if abs(prev_seat_obj.column - col) == 1:
                             if prev_cand.subject:
                                 adjacent_subjects.add(prev_cand.subject.code)
 
-                # Pick candidate avoiding same-subject adjacency
-                candidate = self._pick_candidate_avoiding_subject(
-                    candidate_queues, desired_branch, adjacent_subjects, allocated_candidates
+                # ── Check if the desired branch would clash with neighbors ──
+                # The balancer planned this branch, but actual placements may
+                # differ (substitutions in prior seats), so we must verify.
+                branch_penalty = self._get_seat_branch_penalty(
+                    desired_branch, seat, seat_obj_map, room_occupants
                 )
+                use_desired = branch_penalty < 2000
+
+                candidate = None
+                if use_desired:
+                    # Pick candidate from desired branch (avoiding same-subject adjacency)
+                    candidate = self._pick_candidate_from_branch(
+                        candidate_queues, desired_branch, adjacent_subjects,
+                        allocated_candidates, allocated_student_ids,
+                    )
 
                 if candidate:
                     allocated_candidates.add(candidate.id)
+                    allocated_student_ids.add(candidate.student_id)
                     remaining[candidate.branch.code] = max(
                         0, remaining.get(candidate.branch.code, 0) - 1
                     )
-                    sub_branch = '' if candidate.branch.code == desired_branch else desired_branch
                     allocations.append({
                         'candidate': candidate,
                         'room': room,
                         'seat': seat,
-                        'substituted_branch': sub_branch,
-                        'reason': f'{desired_branch} subject-swap' if sub_branch else '',
+                        'substituted_branch': '',
+                        'reason': '',
                     })
                     occupied_seats[(room.id, seat.id)] = candidate
                     room_occupants[seat.seat_number] = candidate
-
-                    if sub_branch:
-                        substitutions.append({
-                            'room': room.room_number,
-                            'seat': seat.seat_number,
-                            'expected_branch': desired_branch,
-                            'actual_branch': candidate.branch.code,
-                            'reason': 'Subject adjacency swap',
-                        })
                 else:
-                    # Find any substitute
+                    # Desired branch exhausted or would clash:
+                    # Only substitute if a compatible candidate exists with ZERO clash (penalty < 2000)
                     sub_candidate, sub_branch = self._find_substitute_candidate(
-                        candidate_queues, desired_branch, allocated_students
+                        candidate_queues, None, allocated_candidates,
+                        allocated_student_ids, seat, room_seats, room_occupants,
                     )
                     if sub_candidate:
-                        allocated_students.add(sub_candidate.student.pin)
+                        allocated_candidates.add(sub_candidate.id)
+                        allocated_student_ids.add(sub_candidate.student_id)
                         remaining[sub_branch] = max(
                             0, remaining.get(sub_branch, 0) - 1
                         )
@@ -401,18 +505,19 @@ class AllocationEngine:
                             'candidate': sub_candidate,
                             'room': room,
                             'seat': seat,
-                            'substituted_branch': desired_branch,
-                            'reason': f'{desired_branch} candidates exhausted',
+                            'substituted_branch': desired_branch or '',
+                            'reason': f'Branch substituted to avoid neighbor clash',
                         })
                         occupied_seats[(room.id, seat.id)] = sub_candidate
                         room_occupants[seat.seat_number] = sub_candidate
                         substitutions.append({
                             'room': room.room_number,
                             'seat': seat.seat_number,
-                            'expected_branch': desired_branch,
+                            'expected_branch': desired_branch or '',
                             'actual_branch': sub_branch,
-                            'reason': f'{desired_branch} candidates exhausted',
+                            'reason': f'Branch substituted to avoid neighbor clash',
                         })
+                    # If no valid substitute without clash, seat remains EMPTY (buffer bench)
 
         return allocations, substitutions, occupied_seats
 
@@ -437,91 +542,153 @@ class AllocationEngine:
 
         return distribution
 
-    def _pick_candidate_avoiding_subject(self, candidate_queues, desired_branch, adjacent_subjects, allocated_candidates=None):
+    def _pick_candidate_from_branch(self, candidate_queues, desired_branch, adjacent_subjects, allocated_candidates=None, allocated_student_ids=None):
         """
-        Pick a candidate from the desired branch, preferring one whose subject
-        code is NOT in adjacent_subjects and who has not already been seated.
+        Pick a candidate strictly from desired_branch, preferring one whose
+        subject code is NOT in adjacent_subjects and who has not already been seated.
+        Ensures the same student is not seated twice.
+        Returns None if desired_branch has no unseated candidates available.
         """
         if allocated_candidates is None:
             allocated_candidates = set()
+        if allocated_student_ids is None:
+            allocated_student_ids = set()
+
+        def is_available(c):
+            return c.id not in allocated_candidates and c.student_id not in allocated_student_ids
 
         def clean_queue(q):
-            while len(q) > 0 and q[0].id in allocated_candidates:
+            while len(q) > 0 and not is_available(q[0]):
                 q.popleft()
 
-        # First: try the desired branch
-        if desired_branch in candidate_queues:
-            queue = candidate_queues[desired_branch]
-            clean_queue(queue)
+        if desired_branch not in candidate_queues:
+            return None
 
-            if len(queue) > 0:
-                if not adjacent_subjects:
-                    return queue.popleft()
+        queue = candidate_queues[desired_branch]
+        clean_queue(queue)
 
-                # Scan for candidate whose subject isn't adjacent
-                for i, c in enumerate(queue):
-                    if c.id in allocated_candidates:
-                        continue
-                    subj_code = c.subject.code if c.subject else ''
-                    if subj_code not in adjacent_subjects:
-                        del queue[i]
-                        return c
+        if len(queue) == 0:
+            return None
 
-                # Fallback: pop first unallocated
-                for i, c in enumerate(queue):
-                    if c.id not in allocated_candidates:
-                        del queue[i]
-                        return c
+        if not adjacent_subjects:
+            return queue.popleft()
 
-        # Desired branch is empty or exhausted, try other branches
-        for branch_code, queue in candidate_queues.items():
-            if branch_code == desired_branch:
+        # Scan for candidate whose subject isn't in adjacent_subjects
+        for i, c in enumerate(queue):
+            if not is_available(c):
                 continue
-            clean_queue(queue)
-            if len(queue) == 0:
-                continue
+            subj_code = c.subject.code if c.subject else ''
+            if subj_code not in adjacent_subjects:
+                del queue[i]
+                return c
 
-            for i, c in enumerate(queue):
-                if c.id in allocated_candidates:
-                    continue
-                subj_code = c.subject.code if c.subject else ''
-                if subj_code not in adjacent_subjects:
-                    del queue[i]
-                    return c
-
-            for i, c in enumerate(queue):
-                if c.id not in allocated_candidates:
-                    del queue[i]
-                    return c
+        # Fallback: if all have adjacent subject, still pick from desired branch
+        # (branch separation is Priority 2, subject separation is Priority 3)
+        for i, c in enumerate(queue):
+            if is_available(c):
+                del queue[i]
+                return c
 
         return None
 
-    def _find_substitute_candidate(self, candidate_queues, excluded_branch, allocated_candidates=None):
+    def _get_seat_branch_penalty(self, branch_code, seat, seat_obj_map, room_occupants):
         """
-        Find a substitute candidate from the branch with the most remaining.
-        Returns (candidate, branch_code) or (None, None).
+        Calculate the neighbor penalty for placing a given branch at a seat.
+        Uses the same weights as the branch_balancer and _find_substitute_candidate.
+
+        Returns:
+            int: Total penalty score (0 = no clash).
+        """
+        if not seat or not room_occupants:
+            return 0
+        penalty = 0
+        col = seat.column
+        row = seat.row
+        for sn, occ in room_occupants.items():
+            occ_seat = seat_obj_map.get(sn)
+            if not occ_seat:
+                continue
+            c_diff = abs(occ_seat.column - col)
+            r_diff = abs(occ_seat.row - row)
+            if c_diff <= 1 and r_diff <= 1 and (c_diff + r_diff > 0):
+                if occ.branch.code == branch_code:
+                    if c_diff == 1 and r_diff == 0:
+                        penalty += 10000  # Horizontal clash (side-by-side)
+                    elif c_diff == 0 and r_diff == 1:
+                        penalty += 5000   # Vertical clash (consecutive bench)
+                    elif c_diff == 1 and r_diff == 1:
+                        penalty += 2000   # Diagonal / cross clash
+        return penalty
+
+    def _find_substitute_candidate(self, candidate_queues, excluded_branch, allocated_candidates=None,
+                                   allocated_student_ids=None, seat=None, room_seats=None, room_occupants=None):
+        """
+        Find a substitute candidate from available branches when excluded_branch is exhausted.
+        Calculates penalty for all 8 surrounding cells (horizontal, vertical, diagonal)
+        so the substitute does NOT clash with neighbors.
         """
         if allocated_candidates is None:
             allocated_candidates = set()
+        if allocated_student_ids is None:
+            allocated_student_ids = set()
+
+        def is_available(c):
+            return c.id not in allocated_candidates and c.student_id not in allocated_student_ids
 
         # Clean all queues of already seated candidates
         for b, q in candidate_queues.items():
-            while len(q) > 0 and q[0].id in allocated_candidates:
+            while len(q) > 0 and not is_available(q[0]):
                 q.popleft()
 
+        # Calculate neighbor penalty for each branch candidate at this seat
+        seat_obj_map = {s.seat_number: s for s in room_seats} if room_seats else {}
+
+        def get_branch_penalty(branch_code):
+            if not seat or not room_occupants:
+                return 0
+            penalty = 0
+            col = seat.column
+            row = seat.row
+            for sn, occ in room_occupants.items():
+                occ_seat = seat_obj_map.get(sn)
+                if not occ_seat:
+                    continue
+                c_diff = abs(occ_seat.column - col)
+                r_diff = abs(occ_seat.row - row)
+                if c_diff <= 1 and r_diff <= 1 and (c_diff + r_diff > 0):
+                    if occ.branch.code == branch_code:
+                        if c_diff == 1 and r_diff == 0:
+                            penalty += 10000  # Horizontal clash (side-by-side)
+                        elif c_diff == 0 and r_diff == 1:
+                            penalty += 5000   # Vertical clash (consecutive bench)
+                        elif c_diff == 1 and r_diff == 1:
+                            penalty += 2000   # Diagonal / cross clash
+            return penalty
+
         best_branch = None
-        best_count = 0
+        best_score = (float('inf'), 0)  # (lowest_penalty, -most_candidates)
 
         for branch, queue in candidate_queues.items():
-            valid_count = sum(1 for c in queue if c.id not in allocated_candidates)
-            if valid_count > best_count:
+            if excluded_branch and branch == excluded_branch:
+                continue
+            valid_count = sum(1 for c in queue if is_available(c))
+            if valid_count == 0:
+                continue
+            penalty = get_branch_penalty(branch)
+            score = (penalty, -valid_count)
+            if score < best_score:
+                best_score = score
                 best_branch = branch
-                best_count = valid_count
+
+        # If even the best available substitute would cause a horizontal, vertical,
+        # or diagonal clash, leave the seat EMPTY to act as a buffer bench.
+        if best_score[0] >= 2000:
+            return None, None
 
         if best_branch and len(candidate_queues[best_branch]) > 0:
             queue = candidate_queues[best_branch]
             for i, c in enumerate(queue):
-                if c.id not in allocated_candidates:
+                if is_available(c):
                     del queue[i]
                     return c, best_branch
 
