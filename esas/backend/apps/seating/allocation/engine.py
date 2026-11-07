@@ -273,7 +273,7 @@ class AllocationEngine:
         total_capacity = sum(r.capacity for r in self.rooms)
         total_candidates = len(self.candidates)
 
-        required_rooms = math.ceil(total_candidates / 42)
+        required_rooms = math.ceil(total_candidates / 42)  # noqa: F841
 
         if total_capacity < total_candidates:
             additional_needed = math.ceil(

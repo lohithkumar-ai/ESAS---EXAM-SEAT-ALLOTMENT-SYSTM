@@ -75,7 +75,7 @@ class RoomViewSet(viewsets.ModelViewSet):
                     seat=seat,
                     room=room,
                 ).select_related(
-                    'candidate__student', 'candidate__branch'
+                    'candidate__student', 'candidate__branch', 'candidate__semester'
                 ).first()
 
                 if alloc:
@@ -84,6 +84,7 @@ class RoomViewSet(viewsets.ModelViewSet):
                         'name': alloc.candidate.student.name,
                         'branch': alloc.candidate.branch.code,
                         'category': alloc.candidate.category,
+                        'semester': alloc.candidate.semester.number if alloc.candidate.semester else None,
                     }
 
             chart_data.append(seat_info)

@@ -12,8 +12,8 @@ class Room(models.Model):
     room_number = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100, blank=True)
     capacity = models.PositiveIntegerField(default=42)
-    columns = models.PositiveIntegerField(default=3)
-    rows = models.PositiveIntegerField(default=14)
+    columns = models.PositiveIntegerField(default=6)
+    rows = models.PositiveIntegerField(default=7)
     numbering_order = models.CharField(
         max_length=20,
         choices=NUMBERING_CHOICES,

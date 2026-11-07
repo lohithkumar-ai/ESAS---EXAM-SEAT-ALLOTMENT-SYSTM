@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { roomAPI } from '../services/api';
-import { ArrowLeft, Users, DoorOpen, ShieldCheck, CheckCircle } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import StatusBadge from '../components/common/StatusBadge';
 
 const BRANCH_COLORS = {
@@ -55,21 +55,24 @@ export default function SeatingChart() {
     );
   }
 
-  // Build 2D grid: grid[row][col] (Preserve exact 1-indexed row/col logic)
-  const grid = [];
-  for (let r = 1; r <= chart.rows; r++) {
-    const row = [];
-    for (let c = 1; c <= chart.columns; c++) {
-      const seat = chart.seats.find((s) => s.column === c && s.row === r);
-      row.push(seat || null);
-    }
-    grid.push(row);
-  }
+  // Build seat lookup by (column, row)
+  const seatMap = {};
+  chart.seats.forEach((s) => {
+    seatMap[`${s.column}-${s.row}`] = s;
+  });
+
+  // Calculate bench columns: each bench column = 2 physical columns
+  const benchColumns = Math.floor(chart.columns / 2);
+  const rowCount = chart.rows;
+  const totalBenches = benchColumns * rowCount;
 
   const occupiedCount = chart.seats.filter((s) => s.student).length;
   const occupancyPercent = chart.capacity > 0 ? Math.round((occupiedCount / chart.capacity) * 100) : 0;
 
   const backUrl = sessionId ? `/examination/${sessionId}/rooms` : '/rooms';
+
+  // Calculate bench number
+  const getBenchNumber = (benchCol, row) => (benchCol * rowCount) + row;
 
   return (
     <div className="fade-in">
@@ -91,7 +94,7 @@ export default function SeatingChart() {
             </span>
           </div>
           <p className="page-subtitle">
-            Configuration: {chart.columns} Columns &times; {chart.rows} Rows &bull; Serpentine Dual-Branch Grid
+            {benchColumns} Bench Columns &times; {rowCount} Rows &bull; {totalBenches} Benches &bull; Dual-Branch Bench Grid
           </p>
         </div>
 
@@ -141,15 +144,15 @@ export default function SeatingChart() {
         </div>
       </div>
 
-      {/* ── Interactive Seating Matrix ── */}
+      {/* ── Bench-Based Seating Matrix ── */}
       <div className="card" style={{ overflowX: 'auto', padding: '28px 20px' }}>
-        {/* Column Headers */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 16 }}>
-          {Array.from({ length: chart.columns }, (_, i) => (
+        {/* Bench Column Headers */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 16 }}>
+          {Array.from({ length: benchColumns }, (_, i) => (
             <div
               key={i}
               style={{
-                width: 110,
+                width: 240,
                 textAlign: 'center',
                 fontSize: 11.5,
                 fontWeight: 700,
@@ -162,84 +165,38 @@ export default function SeatingChart() {
                 border: '1px solid var(--border-color)',
               }}
             >
-              Col {i + 1}
+              Column {i + 1}
             </div>
           ))}
         </div>
 
-        {/* Rows */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-          {grid.map((row, ri) => (
-            <div key={ri} style={{ display: 'flex', gap: 12 }}>
-              {row.map((seat, ci) => {
-                if (!seat) return <div key={ci} style={{ width: 110, height: 74 }} />;
-                const branch = seat.student?.branch || '';
-                const branchColor = BRANCH_COLORS[branch] || 'var(--primary)';
-                const isHovered = hoveredSeat === seat.seat_number;
-                const isOccupied = Boolean(seat.student);
+        {/* Bench Rows */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+          {Array.from({ length: rowCount }, (_, ri) => {
+            const row = ri + 1;
+            return (
+              <div key={ri} style={{ display: 'flex', gap: 32 }}>
+                {Array.from({ length: benchColumns }, (_, bci) => {
+                  const leftCol = bci * 2 + 1;
+                  const rightCol = bci * 2 + 2;
+                  const leftSeat = seatMap[`${leftCol}-${row}`];
+                  const rightSeat = seatMap[`${rightCol}-${row}`];
+                  const benchNum = getBenchNumber(bci, row);
 
-                return (
-                  <div
-                    key={ci}
-                    className={`seat-cell ${isOccupied ? 'occupied' : 'empty'}`}
-                    style={{
-                      width: 110,
-                      minHeight: 74,
-                      borderLeft: isOccupied ? `4px solid ${branchColor}` : '1px dashed var(--border-strong)',
-                      borderColor: isHovered ? branchColor : undefined,
-                      boxShadow: isHovered ? 'var(--shadow-md)' : undefined,
-                      background: isHovered ? 'var(--primary-subtle)' : undefined,
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={() => setHoveredSeat(seat.seat_number)}
-                    onMouseLeave={() => setHoveredSeat(null)}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="seat-number">
-                        S{seat.seat_number}
-                      </span>
-                      {isOccupied && (
-                        <span
-                          style={{
-                            fontSize: 9.5,
-                            fontWeight: 700,
-                            color: branchColor,
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          {branch}
-                        </span>
-                      )}
-                    </div>
-
-                    {isOccupied ? (
-                      <div style={{ marginTop: 2 }}>
-                        <div className="seat-pin" title={seat.student.pin}>
-                          {seat.student.pin}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 9.5,
-                            color: 'var(--text-muted)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                          title={seat.student.name}
-                        >
-                          {seat.student.name}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8, fontStyle: 'italic' }}>
-                        Buffer
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                  return (
+                    <BenchCell
+                      key={bci}
+                      benchNumber={benchNum}
+                      leftSeat={leftSeat}
+                      rightSeat={rightSeat}
+                      hoveredSeat={hoveredSeat}
+                      setHoveredSeat={setHoveredSeat}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -295,6 +252,151 @@ export default function SeatingChart() {
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+/**
+ * BenchCell — renders a single bench with LEFT and RIGHT seats side by side
+ */
+function BenchCell({ benchNumber, leftSeat, rightSeat, hoveredSeat, setHoveredSeat }) {
+  return (
+    <div
+      style={{
+        width: 240,
+        border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-md, 8px)',
+        overflow: 'hidden',
+        background: 'var(--bg-card, #fff)',
+        transition: 'box-shadow 0.15s',
+      }}
+    >
+      {/* Bench label */}
+      <div
+        style={{
+          textAlign: 'center',
+          fontSize: 10.5,
+          fontWeight: 700,
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: 0.6,
+          padding: '4px 0 2px',
+          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border-color)',
+        }}
+      >
+        B{benchNumber}
+      </div>
+
+      {/* Two seats side by side */}
+      <div style={{ display: 'flex' }}>
+        <SeatHalf
+          seat={leftSeat}
+          side="left"
+          hoveredSeat={hoveredSeat}
+          setHoveredSeat={setHoveredSeat}
+        />
+        <div style={{ width: 1, background: 'var(--border-color)' }} />
+        <SeatHalf
+          seat={rightSeat}
+          side="right"
+          hoveredSeat={hoveredSeat}
+          setHoveredSeat={setHoveredSeat}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SeatHalf — one side (LEFT or RIGHT) of a bench
+ */
+function SeatHalf({ seat, side, hoveredSeat, setHoveredSeat }) {
+  if (!seat) {
+    return (
+      <div style={{ flex: 1, padding: '8px 10px', minHeight: 62 }}>
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' }}>—</div>
+      </div>
+    );
+  }
+
+  const branch = seat.student?.branch || '';
+  const branchColor = BRANCH_COLORS[branch] || 'var(--primary)';
+  const isHovered = hoveredSeat === seat.seat_number;
+  const isOccupied = Boolean(seat.student);
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        padding: '6px 10px',
+        minHeight: 62,
+        cursor: 'pointer',
+        background: isHovered ? 'var(--primary-subtle)' : 'transparent',
+        borderLeft: isOccupied && side === 'left' ? `3px solid ${branchColor}` : undefined,
+        borderRight: isOccupied && side === 'right' ? `3px solid ${branchColor}` : undefined,
+        transition: 'background 0.12s',
+      }}
+      onMouseEnter={() => setHoveredSeat(seat.seat_number)}
+      onMouseLeave={() => setHoveredSeat(null)}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: 'var(--text-muted)',
+            fontFamily: 'monospace',
+          }}
+        >
+          S{seat.seat_number}
+        </span>
+        {isOccupied && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              color: branchColor,
+              textTransform: 'uppercase',
+            }}
+          >
+            {branch}
+          </span>
+        )}
+      </div>
+
+      {isOccupied ? (
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              fontFamily: 'monospace',
+            }}
+            title={seat.student.pin}
+          >
+            {seat.student.pin}
+          </div>
+          <div
+            style={{
+              fontSize: 9.5,
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: 95,
+            }}
+            title={seat.student.name}
+          >
+            {seat.student.name}
+          </div>
+        </div>
+      ) : (
+        <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>
+          Buffer
+        </div>
+      )}
     </div>
   );
 }

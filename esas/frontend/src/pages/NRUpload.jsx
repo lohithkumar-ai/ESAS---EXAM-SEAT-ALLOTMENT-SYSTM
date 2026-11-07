@@ -463,9 +463,9 @@ export default function NRUpload() {
               options={
                 selectedYear
                   ? [1, 2].map((offset) => {
-                      const semNum = (selectedYear.year - 1) * 2 + offset;
-                      return { value: String(semNum), label: `Semester ${semNum}` };
-                    })
+                    const semNum = (selectedYear.year - 1) * 2 + offset;
+                    return { value: String(semNum), label: `Semester ${semNum}` };
+                  })
                   : []
               }
             />
