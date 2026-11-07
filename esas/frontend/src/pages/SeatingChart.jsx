@@ -15,6 +15,17 @@ const BRANCH_COLORS = {
   M: '#5F727D',
 };
 
+const BRANCH_BG_COLORS = {
+  CME: '#F0FDF4',
+  CM: '#F0FDF4',
+  ECE: '#F0F9FF',
+  EC: '#F0F9FF',
+  EEE: '#FFFBEB',
+  EE: '#FFFBEB',
+  ME: '#F8FAFC',
+  M: '#F8FAFC',
+};
+
 export default function SeatingChart() {
   const { sessionId, roomId } = useParams();
   const navigate = useNavigate();
@@ -132,14 +143,14 @@ export default function SeatingChart() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid var(--border-color)', paddingLeft: 10 }}>
             <div
               style={{
-                width: 10,
-                height: 10,
+                width: 12,
+                height: 12,
                 borderRadius: 3,
-                background: 'var(--bg-secondary)',
-                border: '1px dashed var(--border-strong)',
+                background: '#FEE2E2',
+                border: '1.5px solid #DC2626',
               }}
             />
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Empty / Buffer</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#DC2626' }}>Not Allocated</span>
           </div>
         </div>
       </div>
@@ -332,9 +343,13 @@ function SeatHalf({ seat, side, hoveredSeat, setHoveredSeat }) {
         padding: '6px 10px',
         minHeight: 62,
         cursor: 'pointer',
-        background: isHovered ? 'var(--primary-subtle)' : 'transparent',
-        borderLeft: isOccupied && side === 'left' ? `3px solid ${branchColor}` : undefined,
-        borderRight: isOccupied && side === 'right' ? `3px solid ${branchColor}` : undefined,
+        background: isHovered
+          ? 'var(--primary-subtle)'
+          : !isOccupied
+          ? '#FEF2F2'
+          : BRANCH_BG_COLORS[branch] || 'transparent',
+        borderLeft: isOccupied && side === 'left' ? `3px solid ${branchColor}` : !isOccupied && side === 'left' ? '3px solid #DC2626' : undefined,
+        borderRight: isOccupied && side === 'right' ? `3px solid ${branchColor}` : !isOccupied && side === 'right' ? '3px solid #DC2626' : undefined,
         transition: 'background 0.12s',
       }}
       onMouseEnter={() => setHoveredSeat(seat.seat_number)}
@@ -393,8 +408,19 @@ function SeatHalf({ seat, side, hoveredSeat, setHoveredSeat }) {
           </div>
         </div>
       ) : (
-        <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>
-          Buffer
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: '#DC2626',
+            marginTop: 4,
+            padding: '2px 6px',
+            background: '#FEE2E2',
+            borderRadius: 3,
+            display: 'inline-block',
+          }}
+        >
+          NOT ALLOCATED
         </div>
       )}
     </div>

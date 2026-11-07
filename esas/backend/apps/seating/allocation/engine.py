@@ -544,9 +544,8 @@ class AllocationEngine:
 
     def _pick_candidate_from_branch(self, candidate_queues, desired_branch, adjacent_subjects, allocated_candidates=None, allocated_student_ids=None):
         """
-        Pick a candidate strictly from desired_branch, preferring one whose
-        subject code is NOT in adjacent_subjects and who has not already been seated.
-        Ensures the same student is not seated twice.
+        Pick a candidate strictly from desired_branch in exact NR PIN order.
+        Ensures the same student is not seated twice and roll order is never jumbled.
         Returns None if desired_branch has no unseated candidates available.
         """
         if allocated_candidates is None:
@@ -557,39 +556,18 @@ class AllocationEngine:
         def is_available(c):
             return c.id not in allocated_candidates and c.student_id not in allocated_student_ids
 
-        def clean_queue(q):
-            while len(q) > 0 and not is_available(q[0]):
-                q.popleft()
-
         if desired_branch not in candidate_queues:
             return None
 
         queue = candidate_queues[desired_branch]
-        clean_queue(queue)
+        while len(queue) > 0 and not is_available(queue[0]):
+            queue.popleft()
 
         if len(queue) == 0:
             return None
 
-        if not adjacent_subjects:
-            return queue.popleft()
-
-        # Scan for candidate whose subject isn't in adjacent_subjects
-        for i, c in enumerate(queue):
-            if not is_available(c):
-                continue
-            subj_code = c.subject.code if c.subject else ''
-            if subj_code not in adjacent_subjects:
-                del queue[i]
-                return c
-
-        # Fallback: if all have adjacent subject, still pick from desired branch
-        # (branch separation is Priority 2, subject separation is Priority 3)
-        for i, c in enumerate(queue):
-            if is_available(c):
-                del queue[i]
-                return c
-
-        return None
+        # Strictly pop from the front to maintain exact NR list roll order without jumbling
+        return queue.popleft()
 
     def _get_seat_branch_penalty(self, branch_code, seat, seat_obj_map, room_occupants):
         """
@@ -687,10 +665,10 @@ class AllocationEngine:
 
         if best_branch and len(candidate_queues[best_branch]) > 0:
             queue = candidate_queues[best_branch]
-            for i, c in enumerate(queue):
-                if is_available(c):
-                    del queue[i]
-                    return c, best_branch
+            while len(queue) > 0 and not is_available(queue[0]):
+                queue.popleft()
+            if len(queue) > 0:
+                return queue.popleft(), best_branch
 
         return None, None
 

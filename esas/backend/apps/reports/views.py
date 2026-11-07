@@ -88,7 +88,6 @@ def room_summary_report(request):
 
 
 
-
 @api_view(['GET'])
 def subject_wise_report(request):
     """Subject-wise distribution report."""
@@ -110,7 +109,6 @@ def subject_wise_report(request):
     } for s in subjects]
 
     return Response({'subjects': data})
-
 
 
 
@@ -182,7 +180,16 @@ def export_excel(request):
 
 @api_view(['GET'])
 def export_pdf(request):
-    """Export allotment data as PDF."""
+    """
+    Export allotment data as PDF with bench-based layout.
+
+    Layout per room page:
+      3 bench columns separated by aisles.
+      Each bench has LEFT seat | RIGHT seat.
+      Seat numbering: within each bench column, LEFT seats top→bottom,
+      then RIGHT seats top→bottom.
+      Empty/buffer seats shown with RED "NOT ALLOCATED" label.
+    """
     session, err = _get_session_or_error(request)
     if err:
         return err
@@ -190,10 +197,87 @@ def export_pdf(request):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import (
+        SimpleDocTemplate, Table, TableStyle,
+        Paragraph, Spacer, PageBreak,
+    )
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
 
-    report_type = request.query_params.get('type', 'allotment')
+    # ── Styles ──────────────────────────────────────────────────────────
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'ReportTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=14,
+        leading=18,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1E293B'),
+        spaceAfter=4,
+    )
+
+    subtitle_style = ParagraphStyle(
+        'ReportSubtitle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9.5,
+        leading=13,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#64748B'),
+        spaceAfter=12,
+    )
+
+    col_header_style = ParagraphStyle(
+        'ColHeader',
+        fontName='Helvetica-Bold',
+        fontSize=10,
+        leading=13,
+        alignment=TA_CENTER,
+        textColor=colors.white,
+    )
+
+    seat_title_style = ParagraphStyle(
+        'SeatTitle',
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=11,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1E293B'),
+    )
+
+    pin_style = ParagraphStyle(
+        'SeatPin',
+        fontName='Helvetica-Bold',
+        fontSize=9.5,
+        leading=13,
+        alignment=TA_CENTER,
+        textColor=colors.black,
+    )
+
+    empty_title_style = ParagraphStyle(
+        'EmptySeatTitle',
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=11,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#475569'),
+    )
+
+    empty_text_style = ParagraphStyle(
+        'EmptyText',
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=12,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#64748B'),
+    )
+
+    # ── Query data ──────────────────────────────────────────────────────
+    all_rooms = Room.objects.filter(is_active=True).order_by(
+        'display_order', 'room_number'
+    )
 
     allocations = SeatAllocation.objects.filter(
         exam_session=session
@@ -203,83 +287,194 @@ def export_pdf(request):
         'room', 'seat'
     ).order_by('room__room_number', 'seat__seat_number')
 
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
-    styles = getSampleStyleSheet()
-    elements = []
+    # Group allocations by room
+    room_map = {}
+    for r in all_rooms:
+        room_map[r.room_number] = {'room': r, 'allocs': {}}
 
-    # Group by room
-    rooms = {}
     for a in allocations:
         rn = a.room.room_number
-        if rn not in rooms:
-            rooms[rn] = []
-        rooms[rn].append(a)
+        if rn in room_map:
+            room_map[rn]['allocs'][a.seat.seat_number] = a
 
-    for i, (room_num, room_allocs) in enumerate(rooms.items()):
-        # Title for the room
+    # ── Build PDF ───────────────────────────────────────────────────────
+    pdf_buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        pdf_buffer,
+        pagesize=landscape(A4),
+        rightMargin=20, leftMargin=20,
+        topMargin=20, bottomMargin=20,
+    )
+    elements = []
+
+    # Column widths: 6 seat cols (118pt each) + 2 aisle gaps (26pt each)
+    seat_w = 118
+    aisle_w = 26
+    col_widths = [seat_w, seat_w, aisle_w, seat_w, seat_w, aisle_w, seat_w, seat_w]
+
+    # Physical column → table column mapping
+    # phys_col 1→tbl 0, phys_col 2→tbl 1, aisle→tbl 2,
+    # phys_col 3→tbl 3, phys_col 4→tbl 4, aisle→tbl 5,
+    # phys_col 5→tbl 6, phys_col 6→tbl 7
+    col_mapping = [0, 1, 3, 4, 6, 7]
+
+    rooms_with_allocs = [
+        (rn, rd) for rn, rd in room_map.items()
+        if len(rd['allocs']) > 0
+    ]
+    # Also include empty rooms that are part of the allocation set
+    if not rooms_with_allocs:
+        rooms_with_allocs = list(room_map.items())
+
+    num_rooms = len(rooms_with_allocs)
+
+    for idx, (room_num, r_data) in enumerate(rooms_with_allocs):
+        room = r_data['room']
+        alloc_dict = r_data['allocs']
+        allocated_count = len(alloc_dict)
+        num_rows = room.rows  # 7
+        bench_cols = room.columns // 2  # 3
+
+        # ── Title ───────────────────────────────────────────────────────
         elements.append(Paragraph(
-            f'ESAS - Seat Allotment: {session.name} | Room: {room_num}',
-            styles['Title']
+            f"ESAS - Seat Allotment: {session.name} | Room: {room_num}",
+            title_style,
         ))
-        elements.append(Spacer(1, 0.2 * inch))
+        elements.append(Paragraph(
+            f"Capacity: {room.capacity} Seats  &bull;  "
+            f"Allocated: {allocated_count}  &bull;  "
+            f"Empty: {room.capacity - allocated_count}",
+            subtitle_style,
+        ))
 
+        # ── Table data ──────────────────────────────────────────────────
         table_data = []
-        capacity = room_allocs[0].room.capacity if room_allocs else 42
-        
-        # Build dictionary of seat_number -> allocation
-        alloc_dict = {a.seat.seat_number: a for a in room_allocs}
-        
-        # Build 6 columns x 7 rows matrix (S1-S7 down each column)
-        num_cols = 6
-        num_rows = 7
-        
-        for row_idx in range(num_rows):
-            row_data = []
-            for col_idx in range(num_cols):
-                # Zigzag serpentine: odd columns go down, even columns go up
-                if col_idx % 2 == 0:
-                    # Even col_idx (0, 2, 4) = columns 1, 3, 5 → top to bottom
-                    seat_num = col_idx * num_rows + row_idx + 1
-                else:
-                    # Odd col_idx (1, 3, 5) = columns 2, 4, 6 → bottom to top
-                    seat_num = (col_idx + 1) * num_rows - row_idx
-                if seat_num > capacity:
-                    row_data.append("")
-                else:
-                    if seat_num in alloc_dict:
-                        alloc = alloc_dict[seat_num]
-                        pin = alloc.candidate.student.pin
-                        cell_text = f"S{seat_num}\n{pin}"
-                    else:
-                        cell_text = f"S{seat_num}\nEmpty"
-                    row_data.append(cell_text)
-            table_data.append(row_data)
+        table_styles = []
 
-        # Create Table (7 columns wide, adjust width to fit A4 landscape)
-        col_width = (doc.width) / num_cols
-        table = Table(table_data, colWidths=[col_width] * num_cols)
-        
-        table.setStyle(TableStyle([
+        # Row 0: Bench column headers
+        header_row = [''] * 8
+        header_labels = [
+            (0, 1, f"COLUMN 1 (B1 – B{num_rows})"),
+            (3, 4, f"COLUMN 2 (B{num_rows + 1} – B{num_rows * 2})"),
+            (6, 7, f"COLUMN 3 (B{num_rows * 2 + 1} – B{num_rows * 3})"),
+        ]
+        for start, end, label in header_labels:
+            header_row[start] = Paragraph(label, col_header_style)
+            table_styles.extend([
+                ('SPAN', (start, 0), (end, 0)),
+                ('BACKGROUND', (start, 0), (end, 0), colors.HexColor('#1E293B')),
+                ('TEXTCOLOR', (start, 0), (end, 0), colors.white),
+            ])
+        table_data.append(header_row)
+
+        # General alignment
+        table_styles.extend([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-            ('TOPPADDING', (0, 0), (-1, -1), 12),
-        ]))
-        
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ])
+
+        # Aisle columns: clean white background, no borders
+        for aisle_col in [2, 5]:
+            table_styles.append(
+                ('BACKGROUND', (aisle_col, 0), (aisle_col, num_rows), colors.white)
+            )
+
+        # ── Seat rows ───────────────────────────────────────────────────
+        # Bench-based seat numbering:
+        #   Bench Col BC (0-based), physical cols = (BC*2+1, BC*2+2)
+        #   LEFT seats:  seat_number = BC * (rows*2) + row  (row 1-based)
+        #   RIGHT seats: seat_number = BC * (rows*2) + rows + row
+        for row_idx in range(num_rows):
+            row_cells = [''] * 8
+            bench_row = row_idx + 1  # 1-based row
+
+            for bc in range(bench_cols):
+                # LEFT seat
+                left_seat_num = bc * (num_rows * 2) + bench_row
+                left_phys_col = bc * 2  # 0-based index into col_mapping
+                left_tbl_col = col_mapping[left_phys_col]
+
+                # RIGHT seat
+                right_seat_num = bc * (num_rows * 2) + num_rows + bench_row
+                right_phys_col = bc * 2 + 1
+                right_tbl_col = col_mapping[right_phys_col]
+
+                bench_num = bc * num_rows + bench_row
+
+                # ── LEFT seat cell ──
+                row_cells[left_tbl_col] = _build_seat_cell(
+                    left_seat_num, bench_num, alloc_dict,
+                    seat_title_style, pin_style,
+                    empty_title_style, empty_text_style,
+                )
+                left_branch = alloc_dict[left_seat_num].candidate.branch.code if left_seat_num in alloc_dict else None
+                _apply_cell_style(
+                    table_styles, left_tbl_col, row_idx + 1,
+                    left_seat_num in alloc_dict,
+                    branch_code=left_branch,
+                )
+
+                # ── RIGHT seat cell ──
+                row_cells[right_tbl_col] = _build_seat_cell(
+                    right_seat_num, bench_num, alloc_dict,
+                    seat_title_style, pin_style,
+                    empty_title_style, empty_text_style,
+                )
+                right_branch = alloc_dict[right_seat_num].candidate.branch.code if right_seat_num in alloc_dict else None
+                _apply_cell_style(
+                    table_styles, right_tbl_col, row_idx + 1,
+                    right_seat_num in alloc_dict,
+                    branch_code=right_branch,
+                )
+
+            table_data.append(row_cells)
+
+        table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        table.setStyle(TableStyle(table_styles))
         elements.append(table)
-        
-        # Page break after every room except the last one
-        if i < len(rooms) - 1:
+
+        if idx < num_rooms - 1:
             elements.append(PageBreak())
 
     doc.build(elements)
-    buffer.seek(0)
+    pdf_buffer.seek(0)
 
-    response = HttpResponse(buffer.read(), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="ESAS_Allotment_{session.name}.pdf"'
+    response = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'attachment; filename="ESAS_Allotment_{session.name}.pdf"'
+    )
     return response
+
+
+def _build_seat_cell(seat_num, bench_num, alloc_dict,
+                     seat_title_style, pin_style,
+                     empty_title_style, empty_text_style):
+    """Build a PDF cell for a single seat (allocated or empty)."""
+    from reportlab.platypus import Spacer, Paragraph
+
+    if seat_num in alloc_dict:
+        alloc = alloc_dict[seat_num]
+        pin = alloc.candidate.student.pin
+        branch = alloc.candidate.branch.code
+        return [
+            Paragraph(f"B{bench_num} &bull; S{seat_num} ({branch})", seat_title_style),
+            Spacer(1, 2),
+            Paragraph(pin, pin_style),
+        ]
+    else:
+        return [
+            Paragraph(f"B{bench_num} &bull; S{seat_num}", empty_title_style),
+            Spacer(1, 2),
+            Paragraph("NOT ALLOCATED", empty_text_style),
+        ]
+
+
+def _apply_cell_style(table_styles, tbl_col, tbl_row, is_allocated, branch_code=None):
+    """Apply clean black & white cell styling without branch or empty seat colors."""
+    from reportlab.lib import colors as _c
+    table_styles.extend([
+        ('BACKGROUND', (tbl_col, tbl_row), (tbl_col, tbl_row), _c.white),
+        ('BOX', (tbl_col, tbl_row), (tbl_col, tbl_row), 1, _c.HexColor('#0F172A')),
+    ])

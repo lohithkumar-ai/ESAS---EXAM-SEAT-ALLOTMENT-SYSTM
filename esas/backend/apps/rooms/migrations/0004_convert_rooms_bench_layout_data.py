@@ -95,3 +95,4 @@ class Migration(migrations.Migration):
             revert_rooms_to_old_layout,
         ),
     ]
+
