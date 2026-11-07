@@ -349,36 +349,18 @@ def export_pdf(request):
 
         # ── Table data ──────────────────────────────────────────────────
         table_data = []
-        table_styles = []
-
-        # Row 0: Bench column headers
-        header_row = [''] * 8
-        header_labels = [
-            (0, 1, f"COLUMN 1 (B1 – B{num_rows})"),
-            (3, 4, f"COLUMN 2 (B{num_rows + 1} – B{num_rows * 2})"),
-            (6, 7, f"COLUMN 3 (B{num_rows * 2 + 1} – B{num_rows * 3})"),
-        ]
-        for start, end, label in header_labels:
-            header_row[start] = Paragraph(label, col_header_style)
-            table_styles.extend([
-                ('SPAN', (start, 0), (end, 0)),
-                ('BACKGROUND', (start, 0), (end, 0), colors.HexColor('#1E293B')),
-                ('TEXTCOLOR', (start, 0), (end, 0), colors.white),
-            ])
-        table_data.append(header_row)
-
-        # General alignment
-        table_styles.extend([
+        table_styles = [
+            # General alignment
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ])
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]
 
         # Aisle columns: clean white background, no borders
         for aisle_col in [2, 5]:
             table_styles.append(
-                ('BACKGROUND', (aisle_col, 0), (aisle_col, num_rows), colors.white)
+                ('BACKGROUND', (aisle_col, 0), (aisle_col, -1), colors.white)
             )
 
         # ── Seat rows ───────────────────────────────────────────────────
@@ -401,37 +383,35 @@ def export_pdf(request):
                 right_phys_col = bc * 2 + 1
                 right_tbl_col = col_mapping[right_phys_col]
 
-                bench_num = bc * num_rows + bench_row
-
                 # ── LEFT seat cell ──
                 row_cells[left_tbl_col] = _build_seat_cell(
-                    left_seat_num, bench_num, alloc_dict,
+                    left_seat_num, alloc_dict,
                     seat_title_style, pin_style,
                     empty_title_style, empty_text_style,
                 )
                 left_branch = alloc_dict[left_seat_num].candidate.branch.code if left_seat_num in alloc_dict else None
                 _apply_cell_style(
-                    table_styles, left_tbl_col, row_idx + 1,
+                    table_styles, left_tbl_col, row_idx,
                     left_seat_num in alloc_dict,
                     branch_code=left_branch,
                 )
 
                 # ── RIGHT seat cell ──
                 row_cells[right_tbl_col] = _build_seat_cell(
-                    right_seat_num, bench_num, alloc_dict,
+                    right_seat_num, alloc_dict,
                     seat_title_style, pin_style,
                     empty_title_style, empty_text_style,
                 )
                 right_branch = alloc_dict[right_seat_num].candidate.branch.code if right_seat_num in alloc_dict else None
                 _apply_cell_style(
-                    table_styles, right_tbl_col, row_idx + 1,
+                    table_styles, right_tbl_col, row_idx,
                     right_seat_num in alloc_dict,
                     branch_code=right_branch,
                 )
 
             table_data.append(row_cells)
 
-        table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        table = Table(table_data, colWidths=col_widths)
         table.setStyle(TableStyle(table_styles))
         elements.append(table)
 
@@ -448,24 +428,23 @@ def export_pdf(request):
     return response
 
 
-def _build_seat_cell(seat_num, bench_num, alloc_dict,
+def _build_seat_cell(seat_num, alloc_dict,
                      seat_title_style, pin_style,
                      empty_title_style, empty_text_style):
-    """Build a PDF cell for a single seat (allocated or empty)."""
+    """Build a PDF cell for a single seat without bench numbers."""
     from reportlab.platypus import Spacer, Paragraph
 
     if seat_num in alloc_dict:
         alloc = alloc_dict[seat_num]
         pin = alloc.candidate.student.pin
-        branch = alloc.candidate.branch.code
         return [
-            Paragraph(f"B{bench_num} &bull; S{seat_num} ({branch})", seat_title_style),
+            Paragraph(f"S{seat_num}", seat_title_style),
             Spacer(1, 2),
             Paragraph(pin, pin_style),
         ]
     else:
         return [
-            Paragraph(f"B{bench_num} &bull; S{seat_num}", empty_title_style),
+            Paragraph(f"S{seat_num}", empty_title_style),
             Spacer(1, 2),
             Paragraph("NOT ALLOCATED", empty_text_style),
         ]
